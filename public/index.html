@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
+
   <script>
   // usernode-dev-console@1
   (function () {
@@ -35,16 +35,12 @@
     function post(level, args, meta) {
       try {
         var payload = {
-          sentinel: S,
-          level: level,
+          sentinel: S, level: level,
           args: Array.prototype.slice.call(args).map(function (a) { return serialize(a); }),
-          ts: Date.now(),
-          url: location.href,
+          ts: Date.now(), url: location.href,
         };
         if (meta) for (var k in meta) payload[k] = meta[k];
-        if (window.parent && window.parent !== window) {
-          window.parent.postMessage(payload, '*');
-        }
+        if (window.parent && window.parent !== window) window.parent.postMessage(payload, '*');
       } catch (_) {}
     }
     ['log','info','warn','error','debug'].forEach(function (level) {
@@ -63,59 +59,833 @@
     try { post('info', ['[dev-console ready]'], { kind: 'ready' }); } catch (_) {}
   })();
   </script>
-  <title>QCP</title>
+
+  <title>Quick Count Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config = { darkMode: 'class' }</script>
+  <style>
+    .btn { @apply px-4 py-2 rounded-lg font-medium transition-colors text-sm; }
+    .btn-primary { @apply bg-violet-600 hover:bg-violet-500 text-white; }
+    .btn-secondary { @apply bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700; }
+    .btn-danger { @apply bg-red-900/50 hover:bg-red-800/60 text-red-400 border border-red-800; }
+    .btn-sm { @apply px-3 py-1.5 text-xs rounded-md font-medium transition-colors; }
+    .card { @apply bg-zinc-900 border border-zinc-800 rounded-xl p-4; }
+    .input { @apply bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 text-sm w-full focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500; }
+    .label { @apply block text-xs font-medium text-zinc-400 mb-1; }
+    .tab-btn { @apply px-4 py-2 text-sm font-medium rounded-lg transition-colors; }
+    .tab-active { @apply bg-violet-600 text-white; }
+    .tab-inactive { @apply text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800; }
+  </style>
 </head>
-<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col items-center justify-center gap-8 p-4">
-  <h1 class="text-2xl font-bold">QCP</h1>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
 
-  <button id="press-btn" class="w-32 h-32 rounded-full bg-violet-600 hover:bg-violet-500 active:scale-95 transition-all text-white text-xl font-bold shadow-lg shadow-violet-600/30">
-    Press!
-  </button>
+  <!-- Toast notification -->
+  <div id="toast" style="display:none" class="fixed top-4 right-4 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg max-w-sm"></div>
 
-  <div id="count" class="text-lg text-zinc-400">0 total presses</div>
+  <!-- VIEW: SESSIONS LIST -->
+  <section id="view-sessions" class="max-w-2xl mx-auto px-4 py-6">
+    <div class="flex items-start justify-between mb-2">
+      <div>
+        <h1 class="text-2xl font-bold text-zinc-100">Quick Count Pro</h1>
+        <p class="text-zinc-500 text-sm mt-0.5">Real-time election tally, one TPS at a time</p>
+      </div>
+      <button id="btn-new-session" class="btn btn-primary mt-1 whitespace-nowrap">+ New Session</button>
+    </div>
+    <div id="sessions-list" class="mt-6 space-y-3"></div>
+  </section>
 
-  <div class="w-full max-w-sm">
-    <h2 class="text-sm font-medium text-zinc-500 mb-2 text-center">Leaderboard</h2>
-    <div id="leaderboard" class="space-y-1"></div>
-  </div>
+  <!-- VIEW: CREATE SESSION -->
+  <section id="view-create-session" style="display:none" class="max-w-lg mx-auto px-4 py-6">
+    <button class="btn-back text-zinc-400 hover:text-zinc-200 text-sm flex items-center gap-1 mb-4 transition-colors" onclick="goBack()">
+      ← Back
+    </button>
+    <h2 class="text-xl font-bold mb-6">Buat Sesi Baru</h2>
+    <form id="form-create-session" class="space-y-5">
+      <div>
+        <label class="label" for="session-title">Nama Pemilihan</label>
+        <input id="session-title" class="input" type="text" placeholder="contoh: Pilpres 2024" required>
+      </div>
+      <div>
+        <label class="label" for="session-total-tps">Total TPS</label>
+        <input id="session-total-tps" class="input" type="number" min="1" placeholder="contoh: 100" required>
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="label mb-0">Kandidat / Paslon</label>
+          <button type="button" id="btn-add-candidate" class="text-xs text-violet-400 hover:text-violet-300 transition-colors">+ Tambah Kandidat</button>
+        </div>
+        <div id="candidates-container" class="space-y-2"></div>
+        <p id="candidates-error" style="display:none" class="text-red-400 text-xs mt-1">Minimal 2 kandidat diperlukan</p>
+      </div>
+      <button type="submit" class="btn btn-primary w-full">Buat Sesi</button>
+    </form>
+  </section>
+
+  <!-- VIEW: SESSION DASHBOARD -->
+  <section id="view-session-dashboard" style="display:none" class="max-w-2xl mx-auto px-4 py-6">
+    <div class="flex items-center gap-2 mb-4">
+      <button class="text-zinc-400 hover:text-zinc-200 text-sm transition-colors" onclick="goBack()">← Back</button>
+    </div>
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <h2 id="dash-title" class="text-xl font-bold"></h2>
+        <p id="dash-creator" class="text-zinc-500 text-xs mt-0.5"></p>
+      </div>
+      <div id="dash-closed-badge" style="display:none" class="px-2 py-1 bg-zinc-800 text-zinc-400 text-xs rounded-full border border-zinc-700">Closed</div>
+    </div>
+    <!-- Admin controls (creator only) -->
+    <div id="dash-admin-controls" style="display:none" class="flex gap-2 mb-4">
+      <button id="btn-toggle-status" class="btn btn-secondary text-xs" onclick="toggleSessionStatus()"></button>
+      <button class="btn btn-secondary text-xs" onclick="openAdminDashboard()">Admin Dashboard</button>
+    </div>
+    <!-- Results Final banner -->
+    <div id="dash-closed-banner" style="display:none" class="mb-4 px-4 py-2 bg-zinc-800/60 border border-zinc-700 rounded-lg text-zinc-400 text-sm text-center">
+      Sesi ditutup — Hasil Final
+    </div>
+    <!-- TPS Progress -->
+    <div class="card mb-4">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-sm text-zinc-400">TPS Dilaporkan</span>
+        <span id="dash-tps-text" class="text-sm font-medium text-zinc-200"></span>
+      </div>
+      <div class="w-full bg-zinc-800 rounded-full h-2">
+        <div id="dash-tps-bar" class="bg-violet-600 h-2 rounded-full transition-all" style="width:0%"></div>
+      </div>
+    </div>
+    <!-- Total votes -->
+    <div class="mb-4 text-center">
+      <div id="dash-total-votes" class="text-3xl font-bold text-zinc-100"></div>
+      <div class="text-zinc-500 text-sm">total suara masuk</div>
+    </div>
+    <!-- Candidates -->
+    <div id="dash-candidates" class="space-y-3 mb-6"></div>
+    <!-- Action buttons -->
+    <div class="flex gap-3">
+      <button id="btn-enter-tally" class="btn btn-primary flex-1" onclick="openEnterTally()">Input Suara</button>
+      <button class="btn btn-secondary" onclick="openReports()">Lihat Laporan</button>
+    </div>
+  </section>
+
+  <!-- VIEW: ENTER TALLY -->
+  <section id="view-enter-tally" style="display:none" class="max-w-lg mx-auto px-4 py-6">
+    <button class="text-zinc-400 hover:text-zinc-200 text-sm transition-colors mb-4" onclick="showView('session-dashboard')">← Back</button>
+    <h2 class="text-xl font-bold mb-6">Input Suara TPS</h2>
+    <div id="tally-overwrite-warning" style="display:none" class="mb-4 px-4 py-3 bg-yellow-900/30 border border-yellow-700 rounded-lg text-yellow-400 text-sm"></div>
+    <form id="form-tally" class="space-y-4">
+      <div>
+        <label class="label" for="tally-tps-number">Nomor TPS</label>
+        <input id="tally-tps-number" class="input" type="text" placeholder="contoh: TPS 001" required>
+      </div>
+      <div id="tally-candidate-inputs" class="space-y-3"></div>
+      <div class="text-right text-sm text-zinc-400">
+        Total: <span id="tally-total" class="font-bold text-zinc-200">0</span> suara
+      </div>
+      <div>
+        <label class="label" for="tally-notes">Catatan (opsional)</label>
+        <textarea id="tally-notes" class="input" rows="2" placeholder="Kondisi TPS, situasi khusus, dll."></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary w-full">Submit Laporan</button>
+    </form>
+  </section>
+
+  <!-- VIEW: REPORTS -->
+  <section id="view-reports" style="display:none" class="max-w-2xl mx-auto px-4 py-6">
+    <button class="text-zinc-400 hover:text-zinc-200 text-sm transition-colors mb-4" onclick="showView('session-dashboard')">← Back</button>
+    <h2 class="text-xl font-bold mb-4">Laporan TPS</h2>
+    <div id="reports-content" class="space-y-2"></div>
+  </section>
+
+  <!-- VIEW: ADMIN DASHBOARD -->
+  <section id="view-admin-dashboard" style="display:none" class="max-w-4xl mx-auto px-4 py-6">
+    <button class="text-zinc-400 hover:text-zinc-200 text-sm transition-colors mb-4" onclick="showView('session-dashboard')">← Kembali ke Dashboard</button>
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 id="admin-session-title" class="text-xl font-bold"></h2>
+        <p class="text-zinc-500 text-xs mt-0.5">Admin Dashboard</p>
+      </div>
+      <button class="btn btn-secondary text-xs" onclick="refreshAdminData()">Refresh</button>
+    </div>
+    <!-- Tabs -->
+    <div class="flex gap-1 mb-4 bg-zinc-900/60 rounded-xl p-1 border border-zinc-800 w-fit">
+      <button id="tab-btn-rekap" class="tab-btn tab-active" onclick="switchAdminTab('rekap')">Rekap Suara</button>
+      <button id="tab-btn-witnesses" class="tab-btn tab-inactive" onclick="switchAdminTab('witnesses')">Manajemen Saksi</button>
+      <button id="tab-btn-progress" class="tab-btn tab-inactive" onclick="switchAdminTab('progress')">Progress</button>
+    </div>
+
+    <!-- Tab: Rekap Suara -->
+    <div id="admin-tab-rekap">
+      <div id="rekap-filter-banner" style="display:none" class="mb-3 px-4 py-2 bg-violet-900/30 border border-violet-800 rounded-lg text-violet-300 text-sm flex justify-between items-center">
+        <span id="rekap-filter-text"></span>
+        <button class="text-violet-400 hover:text-violet-200 text-xs" onclick="clearWitnessFilter()">Tampilkan semua</button>
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-zinc-800">
+        <table class="w-full text-sm">
+          <thead id="rekap-thead" class="bg-zinc-900 text-zinc-400 text-xs"></thead>
+          <tbody id="rekap-tbody"></tbody>
+        </table>
+      </div>
+      <div id="rekap-empty" style="display:none" class="text-center text-zinc-600 py-10">Belum ada laporan masuk</div>
+    </div>
+
+    <!-- Tab: Manajemen Saksi -->
+    <div id="admin-tab-witnesses" style="display:none">
+      <div class="overflow-x-auto rounded-xl border border-zinc-800">
+        <table class="w-full text-sm">
+          <thead class="bg-zinc-900 text-zinc-400 text-xs">
+            <tr>
+              <th class="text-left px-4 py-3">Username</th>
+              <th class="text-right px-4 py-3">TPS Dilaporkan</th>
+              <th class="text-left px-4 py-3">Terakhir Submit</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody id="witnesses-tbody"></tbody>
+        </table>
+      </div>
+      <div id="witnesses-empty" style="display:none" class="text-center text-zinc-600 py-10">Belum ada saksi melaporkan</div>
+    </div>
+
+    <!-- Tab: Progress -->
+    <div id="admin-tab-progress" style="display:none">
+      <div id="progress-summary" class="mb-4 text-sm text-zinc-400"></div>
+      <div id="progress-grid"></div>
+    </div>
+  </section>
 
   <script>
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token') || '';
-    const headers = token ? { 'x-usernode-token': token } : {};
+  // ─── State ──────────────────────────────────────────────────────────────────
+  const state = {
+    token: '',
+    currentUser: null,
+    currentSessionId: null,
+    currentSession: null,
+    currentCandidates: [],
+    refreshTimer: null,
+    prevView: 'sessions',
+    adminReports: [],
+    adminWitnesses: [],
+    witnessFilter: null,
+    rekapSortField: 'tps_number',
+    rekapSortDir: 'asc',
+    activeAdminTab: 'rekap'
+  };
 
-    async function loadLeaderboard() {
-      const res = await fetch('/api/leaderboard', { headers });
-      if (!res.ok) return;
-      const { leaderboard } = await res.json();
-      const el = document.getElementById('leaderboard');
-      if (!leaderboard.length) {
-        el.innerHTML = '<p class="text-center text-zinc-600 text-sm">No presses yet</p>';
+  const CANDIDATE_COLORS = [
+    'bg-blue-500','bg-red-500','bg-emerald-500','bg-orange-500',
+    'bg-purple-500','bg-pink-500','bg-teal-500','bg-amber-500',
+    'bg-indigo-500','bg-rose-500'
+  ];
+
+  // ─── Init ────────────────────────────────────────────────────────────────────
+  (function init() {
+    const params = new URLSearchParams(window.location.search);
+    state.token = params.get('token') || '';
+    if (state.token) {
+      try {
+        const payload = JSON.parse(atob(state.token.split('.')[1]));
+        state.currentUser = payload;
+      } catch {}
+    }
+    loadSessions();
+  })();
+
+  // ─── API ─────────────────────────────────────────────────────────────────────
+  async function api(path, opts = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (state.token) headers['x-usernode-token'] = state.token;
+    if (opts.headers) Object.assign(headers, opts.headers);
+    const res = await fetch(path, { ...opts, headers });
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try { const b = await res.json(); msg = b.error || msg; } catch {}
+      throw new Error(msg);
+    }
+    return res.json().catch(() => ({}));
+  }
+
+  // ─── Toast ──────────────────────────────────────────────────────────────────
+  let toastTimer = null;
+  function showToast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = `fixed top-4 right-4 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg max-w-sm ${type === 'error' ? 'bg-red-900 text-red-200 border border-red-700' : 'bg-green-900 text-green-200 border border-green-700'}`;
+    el.style.display = 'block';
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+  }
+
+  // ─── View management ─────────────────────────────────────────────────────────
+  function showView(name) {
+    const views = ['sessions','create-session','session-dashboard','enter-tally','reports','admin-dashboard'];
+    for (const v of views) {
+      const el = document.getElementById(`view-${v}`);
+      if (el) el.style.display = v === name ? 'block' : 'none';
+    }
+    if (name !== 'session-dashboard' && state.refreshTimer) {
+      clearInterval(state.refreshTimer);
+      state.refreshTimer = null;
+    }
+  }
+
+  function goBack() {
+    if (state.prevView && state.prevView !== 'session-dashboard') {
+      showView(state.prevView);
+    } else if (state.currentSessionId) {
+      loadDashboard(state.currentSessionId);
+    } else {
+      showView('sessions');
+      loadSessions();
+    }
+  }
+
+  // ─── Sessions List ───────────────────────────────────────────────────────────
+  async function loadSessions() {
+    state.prevView = 'sessions';
+    showView('sessions');
+    const el = document.getElementById('sessions-list');
+    el.innerHTML = '<p class="text-zinc-600 text-sm text-center py-8">Memuat...</p>';
+    try {
+      const { sessions } = await api('/api/sessions');
+      if (!sessions || sessions.length === 0) {
+        el.innerHTML = '<div class="text-center py-12 text-zinc-600"><p class="text-lg mb-2">Belum ada sesi</p><p class="text-sm">Buat sesi baru untuk mulai menghitung</p></div>';
         return;
       }
-      el.innerHTML = leaderboard.map((r, i) =>
-        '<div class="flex justify-between px-3 py-1 rounded ' + (i === 0 ? 'bg-violet-600/20 text-violet-300' : 'text-zinc-400') + '">' +
-        '<span>' + (i + 1) + '. ' + r.username + '</span>' +
-        '<span class="font-mono">' + r.presses + '</span></div>'
-      ).join('');
-      const total = leaderboard.reduce((s, r) => s + parseInt(r.presses), 0);
-      document.getElementById('count').textContent = total + ' total presses';
+      el.innerHTML = sessions.map(s => {
+        const candLine = (s.candidates || []).map(c => `${c.ballot_number ? c.ballot_number + '. ' : ''}${c.name}`).join(' &middot; ');
+        const pct = s.total_tps > 0 ? Math.round((s.tps_reported / s.total_tps) * 100) : 0;
+        const closedBadge = s.status === 'closed' ? '<span class="px-2 py-0.5 bg-zinc-800 text-zinc-500 text-xs rounded-full border border-zinc-700 ml-2">Closed</span>' : '';
+        return `<div class="session-card card hover:border-zinc-700 transition-colors">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center flex-wrap gap-1">
+                <h3 class="font-semibold text-zinc-100 truncate">${esc(s.title)}</h3>${closedBadge}
+              </div>
+              <p class="text-zinc-500 text-xs mt-1 truncate">${candLine}</p>
+              <div class="mt-2 flex items-center gap-4 text-xs text-zinc-500">
+                <span>${s.tps_reported} / ${s.total_tps} TPS (${pct}%)</span>
+                <span>${Number(s.total_votes).toLocaleString()} suara</span>
+              </div>
+            </div>
+            <button class="btn btn-secondary flex-shrink-0" onclick="loadDashboard(${s.id})">Lihat</button>
+          </div>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      el.innerHTML = `<p class="text-red-400 text-sm text-center py-8">${esc(err.message)}</p>`;
     }
+  }
 
-    document.getElementById('press-btn').addEventListener('click', async () => {
-      try {
-        const res = await fetch('/api/press', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...headers },
-        });
-        if (res.ok) loadLeaderboard();
-        else if (res.status === 401) document.getElementById('count').textContent = 'Sign in to press!';
-      } catch {}
+  document.getElementById('btn-new-session').onclick = () => {
+    state.prevView = 'sessions';
+    initCreateForm();
+    showView('create-session');
+  };
+
+  // ─── Create Session ──────────────────────────────────────────────────────────
+  function initCreateForm() {
+    document.getElementById('session-title').value = '';
+    document.getElementById('session-total-tps').value = '';
+    document.getElementById('candidates-error').style.display = 'none';
+    const container = document.getElementById('candidates-container');
+    container.innerHTML = '';
+    addCandidateRow(1);
+    addCandidateRow(2);
+  }
+
+  function addCandidateRow(ballotNum) {
+    const container = document.getElementById('candidates-container');
+    const rows = container.querySelectorAll('.candidate-row');
+    if (rows.length >= 10) return;
+    const num = ballotNum || (rows.length + 1);
+    const div = document.createElement('div');
+    div.className = 'candidate-row flex gap-2 items-center';
+    div.innerHTML = `
+      <input type="number" placeholder="No." class="input w-16 flex-shrink-0 cand-ballot" value="${num}" min="1">
+      <input type="text" placeholder="Nama kandidat / paslon" class="input flex-1 cand-name" required>
+      <button type="button" class="text-zinc-600 hover:text-red-400 transition-colors text-lg leading-none flex-shrink-0" onclick="this.closest('.candidate-row').remove()" title="Hapus">×</button>
+    `;
+    container.appendChild(div);
+  }
+
+  document.getElementById('btn-add-candidate').onclick = () => addCandidateRow();
+
+  document.getElementById('form-create-session').onsubmit = async (e) => {
+    e.preventDefault();
+    const title = document.getElementById('session-title').value.trim();
+    const total_tps = parseInt(document.getElementById('session-total-tps').value);
+    const rows = document.querySelectorAll('.candidate-row');
+    const candidates = Array.from(rows).map(r => ({
+      name: r.querySelector('.cand-name').value.trim(),
+      ballot_number: r.querySelector('.cand-ballot').value || null
+    })).filter(c => c.name);
+
+    document.getElementById('candidates-error').style.display = candidates.length < 2 ? 'block' : 'none';
+    if (candidates.length < 2) return;
+
+    const btn = e.target.querySelector('[type=submit]');
+    btn.disabled = true; btn.textContent = 'Menyimpan...';
+    try {
+      const { session_id } = await api('/api/sessions', {
+        method: 'POST',
+        body: JSON.stringify({ title, total_tps, candidates })
+      });
+      await loadDashboard(session_id);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Buat Sesi';
+    }
+  };
+
+  // ─── Session Dashboard ───────────────────────────────────────────────────────
+  async function loadDashboard(sessionId) {
+    state.currentSessionId = sessionId;
+    state.prevView = 'session-dashboard';
+    showView('session-dashboard');
+
+    if (state.refreshTimer) clearInterval(state.refreshTimer);
+
+    await fetchAndRenderStats();
+
+    state.refreshTimer = setInterval(fetchAndRenderStats, 10000);
+  }
+
+  async function fetchAndRenderStats() {
+    const sessionId = state.currentSessionId;
+    if (!sessionId) return;
+    try {
+      const data = await api(`/api/sessions/${sessionId}/stats`);
+      const { session, candidates, tps_reported, total_tps, total_votes } = data;
+      state.currentSession = session;
+      state.currentCandidates = candidates;
+
+      document.getElementById('dash-title').textContent = session.title;
+      document.getElementById('dash-creator').textContent = `Dibuat oleh ${session.created_by_username}`;
+
+      const isClosed = session.status === 'closed';
+      document.getElementById('dash-closed-badge').style.display = isClosed ? 'inline-block' : 'none';
+      document.getElementById('dash-closed-banner').style.display = isClosed ? 'block' : 'none';
+      document.getElementById('btn-enter-tally').disabled = isClosed;
+      document.getElementById('btn-enter-tally').className = isClosed
+        ? 'btn flex-1 bg-zinc-800 text-zinc-500 cursor-not-allowed'
+        : 'btn btn-primary flex-1';
+
+      const isAdmin = state.currentUser && state.currentUser.id === session.created_by_user_id;
+      const adminControls = document.getElementById('dash-admin-controls');
+      adminControls.style.display = isAdmin ? 'flex' : 'none';
+      if (isAdmin) {
+        const btn = document.getElementById('btn-toggle-status');
+        btn.textContent = isClosed ? 'Buka Kembali' : 'Tutup Sesi';
+        btn.className = isClosed ? 'btn btn-secondary text-xs' : 'btn bg-zinc-800 hover:bg-zinc-700 text-yellow-400 border border-zinc-700 text-xs';
+      }
+
+      const pct = total_tps > 0 ? Math.round((tps_reported / total_tps) * 100) : 0;
+      document.getElementById('dash-tps-text').textContent = `${tps_reported} / ${total_tps} TPS (${pct}%)`;
+      document.getElementById('dash-tps-bar').style.width = `${pct}%`;
+      document.getElementById('dash-total-votes').textContent = Number(total_votes).toLocaleString();
+
+      const candsEl = document.getElementById('dash-candidates');
+      if (!candidates.length) {
+        candsEl.innerHTML = '<p class="text-zinc-600 text-sm text-center">Belum ada suara masuk</p>';
+      } else {
+        candsEl.innerHTML = candidates.map((c, i) => {
+          const rankClass = i === 0 ? 'bg-yellow-900/20 border-l-4 border-yellow-500' :
+                           i === 1 ? 'border-l-4 border-zinc-500' :
+                           i === 2 ? 'border-l-4 border-orange-700' : 'border-l-4 border-zinc-800';
+          const barColor = CANDIDATE_COLORS[i % CANDIDATE_COLORS.length];
+          const rankLabel = i === 0 ? '#1' : i === 1 ? '#2' : i === 2 ? '#3' : `#${i+1}`;
+          const rankBadge = i === 0
+            ? '<span class="text-xs font-bold text-yellow-400 bg-yellow-900/30 px-1.5 py-0.5 rounded">#1</span>'
+            : `<span class="text-xs font-medium text-zinc-500">${rankLabel}</span>`;
+          return `<div class="card ${rankClass} py-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                ${rankBadge}
+                <span class="font-medium text-zinc-200">${c.ballot_number ? c.ballot_number + '. ' : ''}${esc(c.name)}</span>
+              </div>
+              <div class="text-right">
+                <span class="font-bold text-zinc-100">${Number(c.total_votes).toLocaleString()}</span>
+                <span class="text-zinc-500 text-sm ml-1">${c.pct}%</span>
+              </div>
+            </div>
+            <div class="w-full bg-zinc-800 rounded-full h-2">
+              <div class="${barColor} h-2 rounded-full transition-all" style="width:${c.pct}%"></div>
+            </div>
+          </div>`;
+        }).join('');
+      }
+    } catch (err) {
+      console.error('Stats error:', err);
+    }
+  }
+
+  async function toggleSessionStatus() {
+    if (!state.currentSession) return;
+    const newStatus = state.currentSession.status === 'active' ? 'closed' : 'active';
+    const label = newStatus === 'closed' ? 'Tutup sesi ini? Data suara tidak bisa ditambah.' : 'Buka kembali sesi ini?';
+    if (!confirm(label)) return;
+    try {
+      await api(`/api/sessions/${state.currentSessionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus })
+      });
+      await fetchAndRenderStats();
+      showToast(newStatus === 'closed' ? 'Sesi ditutup' : 'Sesi dibuka kembali');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  // ─── Enter Tally ─────────────────────────────────────────────────────────────
+  function openEnterTally() {
+    if (!state.currentSession || state.currentSession.status !== 'active') return;
+    document.getElementById('tally-tps-number').value = '';
+    document.getElementById('tally-notes').value = '';
+    document.getElementById('tally-overwrite-warning').style.display = 'none';
+    document.getElementById('tally-total').textContent = '0';
+
+    const container = document.getElementById('tally-candidate-inputs');
+    container.innerHTML = state.currentCandidates.map(c => `
+      <div>
+        <label class="label">${c.ballot_number ? c.ballot_number + '. ' : ''}${esc(c.name)}</label>
+        <input type="number" min="0" value="0" class="input tally-vote-input" data-candidate-id="${c.id}">
+      </div>
+    `).join('');
+
+    // Live total
+    container.querySelectorAll('.tally-vote-input').forEach(inp => {
+      inp.addEventListener('input', updateTallyTotal);
     });
 
-    loadLeaderboard();
+    showView('enter-tally');
+  }
+
+  function updateTallyTotal() {
+    const inputs = document.querySelectorAll('.tally-vote-input');
+    const total = Array.from(inputs).reduce((s, i) => s + (parseInt(i.value) || 0), 0);
+    document.getElementById('tally-total').textContent = Number(total).toLocaleString();
+  }
+
+  // TPS number change: check for existing report
+  document.getElementById('tally-tps-number').addEventListener('change', async (e) => {
+    const tpsNumber = e.target.value.trim();
+    const warning = document.getElementById('tally-overwrite-warning');
+    if (!tpsNumber || !state.currentSessionId) { warning.style.display = 'none'; return; }
+    try {
+      const { exists } = await api(`/api/sessions/${state.currentSessionId}/reports/check?tps_number=${encodeURIComponent(tpsNumber)}`);
+      if (exists) {
+        warning.textContent = `TPS "${tpsNumber}" sudah dilaporkan sebelumnya — submit akan menimpa data lama.`;
+        warning.style.display = 'block';
+      } else {
+        warning.style.display = 'none';
+      }
+    } catch {}
+  });
+
+  document.getElementById('form-tally').onsubmit = async (e) => {
+    e.preventDefault();
+    const tps_number = document.getElementById('tally-tps-number').value.trim();
+    const notes = document.getElementById('tally-notes').value.trim() || null;
+    const inputs = document.querySelectorAll('.tally-vote-input');
+    const votes = Array.from(inputs).map(i => ({
+      candidate_id: parseInt(i.dataset.candidateId),
+      votes: parseInt(i.value) || 0
+    }));
+
+    if (!tps_number) return;
+
+    const btn = e.target.querySelector('[type=submit]');
+    btn.disabled = true; btn.textContent = 'Menyimpan...';
+    try {
+      await api(`/api/sessions/${state.currentSessionId}/reports`, {
+        method: 'POST',
+        body: JSON.stringify({ tps_number, votes, notes })
+      });
+      showToast(`Laporan ${tps_number} berhasil disimpan`);
+      await loadDashboard(state.currentSessionId);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Submit Laporan';
+    }
+  };
+
+  // ─── Reports View ─────────────────────────────────────────────────────────────
+  async function openReports() {
+    showView('reports');
+    const el = document.getElementById('reports-content');
+    el.innerHTML = '<p class="text-zinc-600 text-sm py-4">Memuat...</p>';
+    try {
+      const { reports } = await api(`/api/sessions/${state.currentSessionId}/reports`);
+      if (!reports || reports.length === 0) {
+        el.innerHTML = '<p class="text-zinc-600 text-sm text-center py-8">Belum ada laporan</p>';
+        return;
+      }
+      const candMap = {};
+      for (const c of state.currentCandidates) candMap[c.id] = c;
+
+      el.innerHTML = reports.map(r => {
+        const votesHtml = (r.votes || []).filter(v => v && v.candidate_id).map(v => {
+          const c = candMap[v.candidate_id];
+          return c ? `<span class="text-zinc-400">${c.ballot_number ? c.ballot_number + '. ' : ''}${esc(c.name)}: <strong class="text-zinc-200">${v.votes}</strong></span>` : '';
+        }).join(' &nbsp;·&nbsp; ');
+        const isUpdated = r.updated_at !== r.created_at;
+        return `<div class="card text-sm">
+          <div class="flex justify-between items-start">
+            <span class="font-medium text-zinc-200">${esc(r.tps_number)}</span>
+            <span class="text-zinc-600 text-xs">${fmtDate(r.created_at)}${isUpdated ? ' <span class="text-yellow-600">*diperbarui</span>' : ''}</span>
+          </div>
+          <div class="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">${votesHtml}</div>
+          <div class="mt-1 text-zinc-600 text-xs">oleh ${esc(r.submitted_by_username)}</div>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      el.innerHTML = `<p class="text-red-400 text-sm py-4">${esc(err.message)}</p>`;
+    }
+  }
+
+  // ─── Admin Dashboard ──────────────────────────────────────────────────────────
+  function openAdminDashboard() {
+    state.activeAdminTab = 'rekap';
+    state.witnessFilter = null;
+    document.getElementById('admin-session-title').textContent = state.currentSession?.title || '';
+    showView('admin-dashboard');
+    refreshAdminData();
+  }
+
+  async function refreshAdminData() {
+    if (!state.currentSessionId) return;
+    try {
+      const [rRes, wRes] = await Promise.all([
+        api(`/api/sessions/${state.currentSessionId}/admin/reports`),
+        api(`/api/sessions/${state.currentSessionId}/admin/witnesses`)
+      ]);
+      state.adminReports = rRes.reports || [];
+      state.adminWitnesses = wRes.witnesses || [];
+      switchAdminTab(state.activeAdminTab);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  function switchAdminTab(tab) {
+    state.activeAdminTab = tab;
+    ['rekap','witnesses','progress'].forEach(t => {
+      document.getElementById(`admin-tab-${t}`).style.display = t === tab ? 'block' : 'none';
+      const btn = document.getElementById(`tab-btn-${t}`);
+      btn.className = `tab-btn ${t === tab ? 'tab-active' : 'tab-inactive'}`;
+    });
+    if (tab === 'rekap') renderRekapTable();
+    if (tab === 'witnesses') renderWitnessesTable();
+    if (tab === 'progress') renderProgressGrid();
+  }
+
+  function renderRekapTable() {
+    const thead = document.getElementById('rekap-thead');
+    const tbody = document.getElementById('rekap-tbody');
+    const emptyEl = document.getElementById('rekap-empty');
+    const candidates = state.currentCandidates;
+
+    let reports = [...state.adminReports];
+    if (state.witnessFilter) {
+      reports = reports.filter(r => r.submitted_by_username === state.witnessFilter);
+      document.getElementById('rekap-filter-banner').style.display = 'flex';
+      document.getElementById('rekap-filter-text').textContent = `Menampilkan laporan dari: ${state.witnessFilter}`;
+    } else {
+      document.getElementById('rekap-filter-banner').style.display = 'none';
+    }
+
+    // Sort
+    reports.sort((a, b) => {
+      let av, bv;
+      if (state.rekapSortField === 'tps_number') { av = a.tps_number; bv = b.tps_number; }
+      else if (state.rekapSortField === 'submitter') { av = a.submitted_by_username; bv = b.submitted_by_username; }
+      else if (state.rekapSortField === 'total') {
+        av = (a.votes||[]).reduce((s,v)=>s+(v?v.votes:0),0);
+        bv = (b.votes||[]).reduce((s,v)=>s+(v?v.votes:0),0);
+      } else if (state.rekapSortField === 'time') { av = a.created_at; bv = b.created_at; }
+      const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      return state.rekapSortDir === 'asc' ? cmp : -cmp;
+    });
+
+    if (reports.length === 0) {
+      tbody.innerHTML = '';
+      emptyEl.style.display = 'block';
+      thead.innerHTML = '';
+      return;
+    }
+    emptyEl.style.display = 'none';
+
+    function sortTh(field, label) {
+      const isActive = state.rekapSortField === field;
+      const arrow = isActive ? (state.rekapSortDir === 'asc' ? ' ↑' : ' ↓') : '';
+      return `<th class="text-left px-3 py-3 cursor-pointer hover:text-zinc-200 whitespace-nowrap select-none" onclick="setRekapSort('${field}')">${label}${arrow}</th>`;
+    }
+
+    const candCols = candidates.map((c, i) =>
+      `<th class="text-right px-3 py-3 whitespace-nowrap">${c.ballot_number ? c.ballot_number + '.' : (i+1) + '.'} ${esc(c.name.split('–')[0].trim())}</th>`
+    ).join('');
+
+    thead.innerHTML = `<tr>${sortTh('tps_number','TPS')}${candCols}${sortTh('total','Total')}${sortTh('submitter','Saksi')}${sortTh('time','Waktu')}<th class="px-3 py-3">Aksi</th></tr>`;
+
+    tbody.innerHTML = reports.map(r => {
+      const votesMap = {};
+      (r.votes || []).forEach(v => { if (v && v.candidate_id) votesMap[v.candidate_id] = v.votes; });
+      const totalVotes = candidates.reduce((s, c) => s + (votesMap[c.id] || 0), 0);
+      const isUpdated = r.updated_at && r.created_at && r.updated_at !== r.created_at;
+
+      const candCells = candidates.map(c =>
+        `<td class="text-right px-3 py-2 font-mono text-zinc-300">${votesMap[c.id] || 0}</td>`
+      ).join('');
+
+      const detailHtml = `<tr id="detail-${r.id}" style="display:none" class="bg-zinc-900/50">
+        <td colspan="${candidates.length + 5}" class="px-4 py-3">
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <div class="text-zinc-500 text-xs mb-1">Suara per kandidat</div>
+              ${candidates.map(c => `<div class="flex justify-between py-0.5"><span class="text-zinc-400">${esc(c.name)}</span><span class="font-mono text-zinc-200">${votesMap[c.id] || 0}</span></div>`).join('')}
+            </div>
+            <div>
+              <div class="text-zinc-500 text-xs mb-1">Detail laporan</div>
+              <div class="text-zinc-400 text-xs">Saksi: <span class="text-zinc-200">${esc(r.submitted_by_username)}</span></div>
+              <div class="text-zinc-400 text-xs mt-1">Waktu: <span class="text-zinc-200">${fmtDate(r.created_at)}</span></div>
+              ${isUpdated ? `<div class="text-yellow-600 text-xs mt-1">Diperbarui: ${fmtDate(r.updated_at)}</div>` : ''}
+              <div class="text-zinc-400 text-xs mt-2">Catatan:</div>
+              <div class="text-zinc-300 text-xs mt-0.5">${r.notes ? esc(r.notes) : '<span class="text-zinc-600">— (tidak ada catatan)</span>'}</div>
+            </div>
+          </div>
+        </td>
+      </tr>`;
+
+      return `<tr class="border-t border-zinc-800 hover:bg-zinc-900/40 transition-colors">
+        <td class="px-3 py-2 font-medium text-zinc-200 whitespace-nowrap">${esc(r.tps_number)}${isUpdated ? ' <span class="text-yellow-600 text-xs" title="Diperbarui">*</span>' : ''}</td>
+        ${candCells}
+        <td class="text-right px-3 py-2 font-mono font-bold text-zinc-100">${totalVotes}</td>
+        <td class="px-3 py-2 text-zinc-400 text-xs">${esc(r.submitted_by_username)}</td>
+        <td class="px-3 py-2 text-zinc-500 text-xs whitespace-nowrap">${fmtDate(r.created_at)}</td>
+        <td class="px-3 py-2 whitespace-nowrap">
+          <div class="flex gap-1">
+            <button class="btn-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs" onclick="toggleDetail(${r.id})">▼ Detail</button>
+            <button class="btn-sm bg-red-900/40 hover:bg-red-900/60 text-red-400 border border-red-900 text-xs" onclick="deleteReport(${r.id}, '${esc(r.tps_number).replace(/'/g,"\\'")}')">Hapus</button>
+          </div>
+        </td>
+      </tr>${detailHtml}`;
+    }).join('');
+  }
+
+  function setRekapSort(field) {
+    if (state.rekapSortField === field) {
+      state.rekapSortDir = state.rekapSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      state.rekapSortField = field;
+      state.rekapSortDir = 'asc';
+    }
+    renderRekapTable();
+  }
+
+  function toggleDetail(reportId) {
+    const row = document.getElementById(`detail-${reportId}`);
+    if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+  }
+
+  async function deleteReport(reportId, tpsNumber) {
+    if (!confirm(`Hapus laporan ${tpsNumber}? Suara akan dihapus dari rekap.`)) return;
+    try {
+      await api(`/api/sessions/${state.currentSessionId}/reports/${reportId}`, { method: 'DELETE' });
+      state.adminReports = state.adminReports.filter(r => r.id !== reportId);
+      const wRes = await api(`/api/sessions/${state.currentSessionId}/admin/witnesses`);
+      state.adminWitnesses = wRes.witnesses || [];
+      renderRekapTable();
+      if (state.activeAdminTab === 'witnesses') renderWitnessesTable();
+      if (state.activeAdminTab === 'progress') renderProgressGrid();
+      showToast(`Laporan ${tpsNumber} berhasil dihapus`);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  function clearWitnessFilter() {
+    state.witnessFilter = null;
+    renderRekapTable();
+  }
+
+  function renderWitnessesTable() {
+    const tbody = document.getElementById('witnesses-tbody');
+    const emptyEl = document.getElementById('witnesses-empty');
+    const witnesses = state.adminWitnesses;
+
+    if (!witnesses.length) {
+      tbody.innerHTML = '';
+      emptyEl.style.display = 'block';
+      return;
+    }
+    emptyEl.style.display = 'none';
+    tbody.innerHTML = witnesses.map(w => `
+      <tr class="border-t border-zinc-800 hover:bg-zinc-900/40 transition-colors">
+        <td class="px-4 py-3 font-medium text-zinc-200">${esc(w.submitted_by_username)}</td>
+        <td class="px-4 py-3 text-right font-mono text-zinc-300">${w.tps_count}</td>
+        <td class="px-4 py-3 text-zinc-500 text-sm">${fmtDate(w.last_submitted_at)}</td>
+        <td class="px-4 py-3">
+          <button class="btn-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs" onclick="filterRekapByWitness('${esc(w.submitted_by_username).replace(/'/g,"\\'")}')">Lihat Laporan</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function filterRekapByWitness(username) {
+    state.witnessFilter = username;
+    switchAdminTab('rekap');
+  }
+
+  function renderProgressGrid() {
+    const session = state.currentSession;
+    if (!session) return;
+    const totalTps = session.total_tps || 0;
+    const reportedSet = new Set(state.adminReports.map(r => r.tps_number));
+    const reporterMap = {};
+    state.adminReports.forEach(r => { reporterMap[r.tps_number] = r.submitted_by_username; });
+
+    const reported = [...reportedSet].length;
+    const belumLapor = Math.max(0, totalTps - reported);
+
+    document.getElementById('progress-summary').innerHTML =
+      `<span class="text-green-400 font-medium">${reported} sudah lapor</span> &nbsp;·&nbsp; <span class="text-zinc-500">${belumLapor} belum lapor</span> &nbsp;·&nbsp; <span class="text-zinc-400">${totalTps} total TPS</span>`;
+
+    const tiles = [];
+    for (let i = 1; i <= totalTps; i++) {
+      const tpsNum = `TPS ${String(i).padStart(3, '0')}`;
+      if (reportedSet.has(tpsNum)) {
+        tiles.push(`<div class="bg-green-900/40 border border-green-700/50 rounded-lg p-2 text-xs">
+          <div class="font-medium text-green-400 truncate">${esc(tpsNum)}</div>
+          <div class="text-green-700 truncate text-xs mt-0.5">${esc(reporterMap[tpsNum] || '')}</div>
+        </div>`);
+      } else {
+        tiles.push(`<div class="bg-zinc-900/40 border border-zinc-800 rounded-lg p-2 text-xs">
+          <div class="font-medium text-zinc-600 truncate">${esc(tpsNum)}</div>
+          <div class="text-zinc-700 text-xs mt-0.5">Belum lapor</div>
+        </div>`);
+      }
+    }
+
+    document.getElementById('progress-grid').innerHTML = tiles.length
+      ? `<div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">${tiles.join('')}</div>`
+      : '<p class="text-zinc-600 text-sm">Tidak ada TPS yang dikonfigurasi</p>';
+  }
+
+  // ─── Utilities ───────────────────────────────────────────────────────────────
+  function esc(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' }) + ' ' +
+             d.toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' });
+    } catch { return iso; }
+  }
   </script>
 </body>
 </html>

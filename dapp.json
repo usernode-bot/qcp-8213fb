@@ -1,3 +1,10 @@
 {
-  "secrets": []
+  "name": "Quick Count Pro",
+  "secrets": [],
+  "tests": [
+    { "name": "Home loads", "path": "/", "expectSelector": "#view-sessions" },
+    { "name": "Sessions list shows demo data", "path": "/?demo=1", "expectSelector": ".session-card" },
+    { "name": "Session dashboard element in DOM", "path": "/", "expectSelector": "#view-session-dashboard" },
+    { "name": "Admin dashboard element in DOM", "path": "/", "expectSelector": "#view-admin-dashboard" }
+  ]
 }
