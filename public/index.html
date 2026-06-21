@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -61,193 +61,244 @@
   </script>
 
   <title>Quick Count Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>tailwind.config = { darkMode: 'class' }</script>
   <style>
-    .btn { @apply px-4 py-2 rounded-lg font-medium transition-colors text-sm; }
-    .btn-primary { @apply bg-violet-600 hover:bg-violet-500 text-white; }
-    .btn-secondary { @apply bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700; }
-    .btn-danger { @apply bg-red-900/50 hover:bg-red-800/60 text-red-400 border border-red-800; }
-    .btn-sm { @apply px-3 py-1.5 text-xs rounded-md font-medium transition-colors; }
-    .card { @apply bg-zinc-900 border border-zinc-800 rounded-xl p-4; }
-    .input { @apply bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 text-sm w-full focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500; }
-    .label { @apply block text-xs font-medium text-zinc-400 mb-1; }
-    .tab-btn { @apply px-4 py-2 text-sm font-medium rounded-lg transition-colors; }
-    .tab-active { @apply bg-violet-600 text-white; }
-    .tab-inactive { @apply text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800; }
+    *, *::before, *::after { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+    body { background: #f0f4f8; }
+
+    .btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; font-size: 0.875rem; transition: background 0.15s, opacity 0.15s; cursor: pointer; border: none; text-decoration: none; }
+    .btn-primary { background: #1e3a5f; color: #fff; }
+    .btn-primary:hover { background: #254f80; }
+    .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+    .btn-secondary { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+    .btn-secondary:hover { background: #f9fafb; }
+    .btn-danger { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .btn-danger:hover { background: #fee2e2; }
+    .btn-sm { display: inline-flex; align-items: center; padding: 0.25rem 0.625rem; font-size: 0.75rem; font-weight: 500; border-radius: 0.375rem; cursor: pointer; transition: background 0.15s; border: none; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 0.875rem; padding: 1.25rem; }
+    .input { background: #fff; border: 1px solid #d1d5db; border-radius: 0.5rem; padding: 0.5rem 0.75rem; color: #111827; font-size: 0.875rem; width: 100%; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+    .input:focus { border-color: #1e3a5f; box-shadow: 0 0 0 3px rgba(30,58,95,0.12); }
+    .label { display: block; font-size: 0.75rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem; }
+    .tab-btn { padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; border-radius: 0.5rem; transition: background 0.15s, color 0.15s; cursor: pointer; border: none; background: transparent; }
+    .tab-active { background: #1e3a5f !important; color: #fff !important; }
+    .tab-inactive { color: #6b7280; }
+    .tab-inactive:hover { color: #111827; background: #e5e7eb; }
+
+    @keyframes toast-in { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes toast-out { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
+    .toast-show { animation: toast-in 0.3s ease forwards; }
+    .toast-hide { animation: toast-out 0.25s ease forwards; }
+
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .live-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #22c55e; animation: pulse-dot 1.5s ease-in-out infinite; }
+
+    .stripe-row:nth-child(even) { background: #f9fafb; }
   </style>
 </head>
-<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+<body class="min-h-screen text-gray-800">
 
-  <!-- Toast notification -->
-  <div id="toast" style="display:none" class="fixed top-4 right-4 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg max-w-sm"></div>
+  <!-- Branded Header -->
+  <header style="background: #1e3a5f;" class="sticky top-0 z-40 shadow-md">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <span class="text-white font-bold text-lg tracking-tight select-none">⚡ Quick Count Pro</span>
+      <button id="btn-new-session" style="background: #16a34a;" class="btn text-white text-sm hover:opacity-90">+ Sesi Baru</button>
+    </div>
+  </header>
+
+  <!-- Toast -->
+  <div id="toast" style="display:none" class="fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-xl max-w-xs flex items-center gap-2"></div>
 
   <!-- VIEW: SESSIONS LIST -->
   <section id="view-sessions" class="max-w-2xl mx-auto px-4 py-6">
-    <div class="flex items-start justify-between mb-2">
-      <div>
-        <h1 class="text-2xl font-bold text-zinc-100">Quick Count Pro</h1>
-        <p class="text-zinc-500 text-sm mt-0.5">Real-time election tally, one TPS at a time</p>
-      </div>
-      <button id="btn-new-session" class="btn btn-primary mt-1 whitespace-nowrap">+ New Session</button>
-    </div>
-    <div id="sessions-list" class="mt-6 space-y-3"></div>
+    <p class="text-gray-500 text-sm mb-4">Real-time election tally, satu TPS per laporan</p>
+    <div id="sessions-list" class="space-y-3"></div>
   </section>
 
   <!-- VIEW: CREATE SESSION -->
   <section id="view-create-session" style="display:none" class="max-w-lg mx-auto px-4 py-6">
-    <button class="btn-back text-zinc-400 hover:text-zinc-200 text-sm flex items-center gap-1 mb-4 transition-colors" onclick="goBack()">
-      ← Back
-    </button>
-    <h2 class="text-xl font-bold mb-6">Buat Sesi Baru</h2>
-    <form id="form-create-session" class="space-y-5">
-      <div>
-        <label class="label" for="session-title">Nama Pemilihan</label>
-        <input id="session-title" class="input" type="text" placeholder="contoh: Pilpres 2024" required>
-      </div>
-      <div>
-        <label class="label" for="session-total-tps">Total TPS</label>
-        <input id="session-total-tps" class="input" type="number" min="1" placeholder="contoh: 100" required>
-      </div>
-      <div>
-        <div class="flex items-center justify-between mb-2">
-          <label class="label mb-0">Kandidat / Paslon</label>
-          <button type="button" id="btn-add-candidate" class="text-xs text-violet-400 hover:text-violet-300 transition-colors">+ Tambah Kandidat</button>
+    <button class="text-gray-500 hover:text-gray-800 text-sm flex items-center gap-1 mb-5 transition-colors" onclick="goBack()">← Kembali</button>
+    <div class="card shadow-sm">
+      <h2 class="text-xl font-bold mb-5 text-gray-900">Buat Sesi Baru</h2>
+      <form id="form-create-session" class="space-y-5">
+        <div>
+          <label class="label" for="session-title">Nama Pemilihan</label>
+          <input id="session-title" class="input" type="text" placeholder="contoh: Pilpres 2024" required>
         </div>
-        <div id="candidates-container" class="space-y-2"></div>
-        <p id="candidates-error" style="display:none" class="text-red-400 text-xs mt-1">Minimal 2 kandidat diperlukan</p>
-      </div>
-      <button type="submit" class="btn btn-primary w-full">Buat Sesi</button>
-    </form>
+        <div>
+          <label class="label" for="session-total-tps">Total TPS</label>
+          <input id="session-total-tps" class="input" type="number" min="1" placeholder="contoh: 100" required>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="label" style="margin-bottom:0">Kandidat / Paslon</label>
+            <button type="button" id="btn-add-candidate" class="text-xs font-medium transition-colors" style="color:#1e3a5f">+ Tambah Kandidat</button>
+          </div>
+          <div id="candidates-container" class="space-y-2"></div>
+          <p id="candidates-error" style="display:none" class="text-red-500 text-xs mt-1">Minimal 2 kandidat diperlukan</p>
+        </div>
+        <button type="submit" class="btn btn-primary w-full justify-center">Buat Sesi</button>
+      </form>
+    </div>
   </section>
 
   <!-- VIEW: SESSION DASHBOARD -->
   <section id="view-session-dashboard" style="display:none" class="max-w-2xl mx-auto px-4 py-6">
-    <div class="flex items-center gap-2 mb-4">
-      <button class="text-zinc-400 hover:text-zinc-200 text-sm transition-colors" onclick="goBack()">← Back</button>
-    </div>
-    <div class="flex items-start justify-between mb-4">
-      <div>
-        <h2 id="dash-title" class="text-xl font-bold"></h2>
-        <p id="dash-creator" class="text-zinc-500 text-xs mt-0.5"></p>
+    <button class="text-gray-500 hover:text-gray-800 text-sm transition-colors mb-4" onclick="goBack()">← Kembali</button>
+
+    <div class="card shadow-sm mb-4">
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 id="dash-title" class="text-xl font-bold text-gray-900 truncate"></h2>
+            <span id="dash-closed-badge" style="display:none" class="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full border border-gray-200 whitespace-nowrap">Ditutup</span>
+            <span id="dash-live-badge" style="display:none" class="px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full border border-green-200 flex items-center gap-1 whitespace-nowrap"><span class="live-dot"></span> Live</span>
+          </div>
+          <p id="dash-creator" class="text-gray-400 text-xs mt-0.5"></p>
+        </div>
       </div>
-      <div id="dash-closed-badge" style="display:none" class="px-2 py-1 bg-zinc-800 text-zinc-400 text-xs rounded-full border border-zinc-700">Closed</div>
-    </div>
-    <!-- Admin controls (creator only) -->
-    <div id="dash-admin-controls" style="display:none" class="flex gap-2 mb-4">
-      <button id="btn-toggle-status" class="btn btn-secondary text-xs" onclick="toggleSessionStatus()"></button>
-      <button class="btn btn-secondary text-xs" onclick="openAdminDashboard()">Admin Dashboard</button>
-    </div>
-    <!-- Results Final banner -->
-    <div id="dash-closed-banner" style="display:none" class="mb-4 px-4 py-2 bg-zinc-800/60 border border-zinc-700 rounded-lg text-zinc-400 text-sm text-center">
-      Sesi ditutup — Hasil Final
-    </div>
-    <!-- TPS Progress -->
-    <div class="card mb-4">
-      <div class="flex justify-between items-center mb-2">
-        <span class="text-sm text-zinc-400">TPS Dilaporkan</span>
-        <span id="dash-tps-text" class="text-sm font-medium text-zinc-200"></span>
+
+      <!-- Admin controls (creator only) -->
+      <div id="dash-admin-controls" style="display:none" class="flex flex-wrap gap-2 mb-3 pt-3 border-t border-gray-100">
+        <button id="btn-toggle-status" class="btn btn-secondary text-xs" onclick="toggleSessionStatus()"></button>
+        <button class="btn btn-secondary text-xs" onclick="openAdminDashboard()">📊 Admin Dashboard</button>
       </div>
-      <div class="w-full bg-zinc-800 rounded-full h-2">
-        <div id="dash-tps-bar" class="bg-violet-600 h-2 rounded-full transition-all" style="width:0%"></div>
+
+      <!-- Closed banner -->
+      <div id="dash-closed-banner" style="display:none" class="mt-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm text-center">
+        Sesi ditutup — Hasil Final
+      </div>
+
+      <!-- TPS Progress -->
+      <div class="mt-3 pt-3 border-t border-gray-100">
+        <div class="flex justify-between items-center mb-1.5">
+          <span class="text-sm text-gray-500">TPS Dilaporkan</span>
+          <span id="dash-tps-text" class="text-sm font-semibold text-gray-700"></span>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-3">
+          <div id="dash-tps-bar" style="background:#1e3a5f;width:0%;transition:width 0.5s;" class="h-3 rounded-full"></div>
+        </div>
       </div>
     </div>
+
     <!-- Total votes -->
-    <div class="mb-4 text-center">
-      <div id="dash-total-votes" class="text-3xl font-bold text-zinc-100"></div>
-      <div class="text-zinc-500 text-sm">total suara masuk</div>
+    <div class="mb-5 text-center">
+      <div id="dash-total-votes" class="text-4xl font-bold text-gray-900"></div>
+      <div class="text-gray-400 text-sm mt-1">total suara masuk</div>
     </div>
+
     <!-- Candidates -->
     <div id="dash-candidates" class="space-y-3 mb-6"></div>
+
     <!-- Action buttons -->
     <div class="flex gap-3">
-      <button id="btn-enter-tally" class="btn btn-primary flex-1" onclick="openEnterTally()">Input Suara</button>
+      <button id="btn-enter-tally" class="btn btn-primary flex-1 justify-center" onclick="openEnterTally()">Input Suara</button>
       <button class="btn btn-secondary" onclick="openReports()">Lihat Laporan</button>
     </div>
   </section>
 
   <!-- VIEW: ENTER TALLY -->
   <section id="view-enter-tally" style="display:none" class="max-w-lg mx-auto px-4 py-6">
-    <button class="text-zinc-400 hover:text-zinc-200 text-sm transition-colors mb-4" onclick="showView('session-dashboard')">← Back</button>
-    <h2 class="text-xl font-bold mb-6">Input Suara TPS</h2>
-    <div id="tally-overwrite-warning" style="display:none" class="mb-4 px-4 py-3 bg-yellow-900/30 border border-yellow-700 rounded-lg text-yellow-400 text-sm"></div>
-    <form id="form-tally" class="space-y-4">
-      <div>
-        <label class="label" for="tally-tps-number">Nomor TPS</label>
-        <input id="tally-tps-number" class="input" type="text" placeholder="contoh: TPS 001" required>
-      </div>
-      <div id="tally-candidate-inputs" class="space-y-3"></div>
-      <div class="text-right text-sm text-zinc-400">
-        Total: <span id="tally-total" class="font-bold text-zinc-200">0</span> suara
-      </div>
-      <div>
-        <label class="label" for="tally-notes">Catatan (opsional)</label>
-        <textarea id="tally-notes" class="input" rows="2" placeholder="Kondisi TPS, situasi khusus, dll."></textarea>
-      </div>
-      <button type="submit" class="btn btn-primary w-full">Submit Laporan</button>
-    </form>
+    <button class="text-gray-500 hover:text-gray-800 text-sm transition-colors mb-4" onclick="showView('session-dashboard')">← Kembali</button>
+    <div class="card shadow-sm">
+      <h2 class="text-xl font-bold mb-5 text-gray-900">Input Suara TPS</h2>
+      <div id="tally-overwrite-warning" style="display:none" class="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm"></div>
+      <form id="form-tally" class="space-y-4">
+        <div>
+          <label class="label" for="tally-tps-number">Nomor TPS</label>
+          <input id="tally-tps-number" class="input" type="text" placeholder="contoh: TPS 001" required>
+        </div>
+        <div id="tally-candidate-inputs" class="space-y-3"></div>
+        <div class="flex justify-between items-center px-4 py-3 rounded-xl border" style="background:#eff6ff;border-color:#bfdbfe;">
+          <span class="text-sm font-medium" style="color:#1d4ed8;">Total suara</span>
+          <span id="tally-total" class="font-bold text-lg" style="color:#1e3a5f;">0</span>
+        </div>
+        <div>
+          <label class="label" for="tally-notes">Catatan (opsional)</label>
+          <textarea id="tally-notes" class="input" rows="2" placeholder="Kondisi TPS, situasi khusus, dll."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary w-full justify-center">Submit Laporan</button>
+      </form>
+    </div>
   </section>
 
   <!-- VIEW: REPORTS -->
   <section id="view-reports" style="display:none" class="max-w-2xl mx-auto px-4 py-6">
-    <button class="text-zinc-400 hover:text-zinc-200 text-sm transition-colors mb-4" onclick="showView('session-dashboard')">← Back</button>
-    <h2 class="text-xl font-bold mb-4">Laporan TPS</h2>
+    <button class="text-gray-500 hover:text-gray-800 text-sm transition-colors mb-4" onclick="showView('session-dashboard')">← Kembali</button>
+    <h2 class="text-xl font-bold mb-4 text-gray-900">Laporan TPS</h2>
     <div id="reports-content" class="space-y-2"></div>
   </section>
 
   <!-- VIEW: ADMIN DASHBOARD -->
-  <section id="view-admin-dashboard" style="display:none" class="max-w-4xl mx-auto px-4 py-6">
-    <button class="text-zinc-400 hover:text-zinc-200 text-sm transition-colors mb-4" onclick="showView('session-dashboard')">← Kembali ke Dashboard</button>
-    <div class="flex items-center justify-between mb-4">
+  <section id="view-admin-dashboard" style="display:none" class="max-w-5xl mx-auto px-4 py-6">
+    <button class="text-gray-500 hover:text-gray-800 text-sm transition-colors mb-4" onclick="showView('session-dashboard')">← Kembali ke Dashboard</button>
+    <div class="flex items-center justify-between mb-5">
       <div>
-        <h2 id="admin-session-title" class="text-xl font-bold"></h2>
-        <p class="text-zinc-500 text-xs mt-0.5">Admin Dashboard</p>
+        <h2 id="admin-session-title" class="text-xl font-bold text-gray-900"></h2>
+        <p class="text-gray-400 text-xs mt-0.5">Admin Dashboard</p>
       </div>
-      <button class="btn btn-secondary text-xs" onclick="refreshAdminData()">Refresh</button>
+      <button class="btn btn-secondary text-xs" onclick="refreshAdminData()">↺ Refresh</button>
     </div>
+
     <!-- Tabs -->
-    <div class="flex gap-1 mb-4 bg-zinc-900/60 rounded-xl p-1 border border-zinc-800 w-fit">
-      <button id="tab-btn-rekap" class="tab-btn tab-active" onclick="switchAdminTab('rekap')">Rekap Suara</button>
-      <button id="tab-btn-witnesses" class="tab-btn tab-inactive" onclick="switchAdminTab('witnesses')">Manajemen Saksi</button>
-      <button id="tab-btn-progress" class="tab-btn tab-inactive" onclick="switchAdminTab('progress')">Progress</button>
+    <div class="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1 w-fit border border-gray-200">
+      <button id="tab-btn-rekap" class="tab-btn tab-active" onclick="switchAdminTab('rekap')">📋 Rekap Suara</button>
+      <button id="tab-btn-witnesses" class="tab-btn tab-inactive" onclick="switchAdminTab('witnesses')">👥 Manajemen Saksi</button>
+      <button id="tab-btn-progress" class="tab-btn tab-inactive" onclick="switchAdminTab('progress')">📊 Progress</button>
     </div>
 
     <!-- Tab: Rekap Suara -->
     <div id="admin-tab-rekap">
-      <div id="rekap-filter-banner" style="display:none" class="mb-3 px-4 py-2 bg-violet-900/30 border border-violet-800 rounded-lg text-violet-300 text-sm flex justify-between items-center">
+      <div id="rekap-filter-banner" style="display:none" class="mb-3 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm flex justify-between items-center">
         <span id="rekap-filter-text"></span>
-        <button class="text-violet-400 hover:text-violet-200 text-xs" onclick="clearWitnessFilter()">Tampilkan semua</button>
+        <button class="text-blue-500 hover:text-blue-700 text-xs font-medium" onclick="clearWitnessFilter()">Tampilkan semua</button>
       </div>
-      <div class="overflow-x-auto rounded-xl border border-zinc-800">
-        <table class="w-full text-sm">
-          <thead id="rekap-thead" class="bg-zinc-900 text-zinc-400 text-xs"></thead>
-          <tbody id="rekap-tbody"></tbody>
-        </table>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead id="rekap-thead" class="bg-gray-50 text-gray-500 text-xs border-b border-gray-100"></thead>
+            <tbody id="rekap-tbody"></tbody>
+          </table>
+        </div>
       </div>
-      <div id="rekap-empty" style="display:none" class="text-center text-zinc-600 py-10">Belum ada laporan masuk</div>
+      <div id="rekap-empty" style="display:none" class="text-center text-gray-400 py-16">
+        <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <p class="text-sm">Belum ada laporan masuk</p>
+      </div>
     </div>
 
     <!-- Tab: Manajemen Saksi -->
     <div id="admin-tab-witnesses" style="display:none">
-      <div class="overflow-x-auto rounded-xl border border-zinc-800">
-        <table class="w-full text-sm">
-          <thead class="bg-zinc-900 text-zinc-400 text-xs">
-            <tr>
-              <th class="text-left px-4 py-3">Username</th>
-              <th class="text-right px-4 py-3">TPS Dilaporkan</th>
-              <th class="text-left px-4 py-3">Terakhir Submit</th>
-              <th class="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody id="witnesses-tbody"></tbody>
-        </table>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-500 text-xs border-b border-gray-100">
+              <tr>
+                <th class="text-left px-4 py-3 font-medium">Saksi</th>
+                <th class="text-right px-4 py-3 font-medium">TPS Dilaporkan</th>
+                <th class="text-left px-4 py-3 font-medium">Terakhir Submit</th>
+                <th class="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody id="witnesses-tbody"></tbody>
+          </table>
+        </div>
       </div>
-      <div id="witnesses-empty" style="display:none" class="text-center text-zinc-600 py-10">Belum ada saksi melaporkan</div>
+      <div id="witnesses-empty" style="display:none" class="text-center text-gray-400 py-16">
+        <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        <p class="text-sm">Belum ada saksi melaporkan</p>
+      </div>
     </div>
 
     <!-- Tab: Progress -->
     <div id="admin-tab-progress" style="display:none">
-      <div id="progress-summary" class="mb-4 text-sm text-zinc-400"></div>
+      <div id="progress-summary" class="mb-4 text-sm font-medium text-gray-600"></div>
       <div id="progress-grid"></div>
     </div>
   </section>
@@ -307,11 +358,16 @@
   let toastTimer = null;
   function showToast(msg, type = 'success') {
     const el = document.getElementById('toast');
-    el.textContent = msg;
-    el.className = `fixed top-4 right-4 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg max-w-sm ${type === 'error' ? 'bg-red-900 text-red-200 border border-red-700' : 'bg-green-900 text-green-200 border border-green-700'}`;
-    el.style.display = 'block';
+    const isErr = type === 'error';
+    el.className = `fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-xl max-w-xs flex items-center gap-2 toast-show ${isErr ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`;
+    el.innerHTML = `<span>${isErr ? '✕' : '✓'}</span><span>${esc(msg)}</span>`;
+    el.style.display = 'flex';
     if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+    toastTimer = setTimeout(() => {
+      el.classList.remove('toast-show');
+      el.classList.add('toast-hide');
+      setTimeout(() => { el.style.display = 'none'; el.classList.remove('toast-hide'); }, 280);
+    }, 3000);
   }
 
   // ─── View management ─────────────────────────────────────────────────────────
@@ -343,35 +399,54 @@
     state.prevView = 'sessions';
     showView('sessions');
     const el = document.getElementById('sessions-list');
-    el.innerHTML = '<p class="text-zinc-600 text-sm text-center py-8">Memuat...</p>';
+    el.innerHTML = `<div class="text-center py-16">
+      <svg class="animate-spin w-8 h-8 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+      <p class="text-gray-400 text-sm mt-3">Memuat...</p>
+    </div>`;
     try {
       const { sessions } = await api('/api/sessions');
       if (!sessions || sessions.length === 0) {
-        el.innerHTML = '<div class="text-center py-12 text-zinc-600"><p class="text-lg mb-2">Belum ada sesi</p><p class="text-sm">Buat sesi baru untuk mulai menghitung</p></div>';
+        el.innerHTML = `<div class="text-center py-16 text-gray-400">
+          <svg class="w-14 h-14 mx-auto mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+          <p class="text-base font-medium text-gray-500 mb-1">Belum ada sesi</p>
+          <p class="text-sm">Buat sesi baru untuk mulai menghitung</p>
+        </div>`;
         return;
       }
       el.innerHTML = sessions.map(s => {
-        const candLine = (s.candidates || []).map(c => `${c.ballot_number ? c.ballot_number + '. ' : ''}${c.name}`).join(' &middot; ');
+        const candLine = (s.candidates || []).map(c => `${c.ballot_number ? c.ballot_number + '. ' : ''}${c.name}`).join(' · ');
         const pct = s.total_tps > 0 ? Math.round((s.tps_reported / s.total_tps) * 100) : 0;
-        const closedBadge = s.status === 'closed' ? '<span class="px-2 py-0.5 bg-zinc-800 text-zinc-500 text-xs rounded-full border border-zinc-700 ml-2">Closed</span>' : '';
-        return `<div class="session-card card hover:border-zinc-700 transition-colors">
+        const isClosed = s.status === 'closed';
+        const borderColor = isClosed ? '#9ca3af' : '#1e3a5f';
+        const badge = isClosed
+          ? '<span class="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full border border-gray-200">Ditutup</span>'
+          : '<span class="px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full border border-green-200">Aktif</span>';
+        return `<div class="session-card card shadow-sm hover:shadow-md transition-shadow" style="border-left: 4px solid ${borderColor};">
           <div class="flex items-start justify-between gap-3">
             <div class="flex-1 min-w-0">
-              <div class="flex items-center flex-wrap gap-1">
-                <h3 class="font-semibold text-zinc-100 truncate">${esc(s.title)}</h3>${closedBadge}
+              <div class="flex items-center flex-wrap gap-2 mb-1">
+                <h3 class="font-semibold text-gray-900 truncate">${esc(s.title)}</h3>${badge}
               </div>
-              <p class="text-zinc-500 text-xs mt-1 truncate">${candLine}</p>
-              <div class="mt-2 flex items-center gap-4 text-xs text-zinc-500">
+              <p class="text-gray-400 text-xs mb-2 truncate">${candLine}</p>
+              <div class="w-full bg-gray-100 rounded-full h-1.5 mb-1">
+                <div style="background:${borderColor};width:${pct}%;" class="h-1.5 rounded-full transition-all"></div>
+              </div>
+              <div class="flex items-center gap-3 text-xs text-gray-400">
                 <span>${s.tps_reported} / ${s.total_tps} TPS (${pct}%)</span>
                 <span>${Number(s.total_votes).toLocaleString()} suara</span>
               </div>
             </div>
-            <button class="btn btn-secondary flex-shrink-0" onclick="loadDashboard(${s.id})">Lihat</button>
+            <button class="btn btn-secondary flex-shrink-0 text-sm" onclick="loadDashboard(${s.id})">Lihat</button>
           </div>
         </div>`;
       }).join('');
     } catch (err) {
-      el.innerHTML = `<p class="text-red-400 text-sm text-center py-8">${esc(err.message)}</p>`;
+      el.innerHTML = `<div class="card border-red-200 bg-red-50 text-red-600 text-sm text-center py-6">${esc(err.message)}</div>`;
     }
   }
 
@@ -402,7 +477,7 @@
     div.innerHTML = `
       <input type="number" placeholder="No." class="input w-16 flex-shrink-0 cand-ballot" value="${num}" min="1">
       <input type="text" placeholder="Nama kandidat / paslon" class="input flex-1 cand-name" required>
-      <button type="button" class="text-zinc-600 hover:text-red-400 transition-colors text-lg leading-none flex-shrink-0" onclick="this.closest('.candidate-row').remove()" title="Hapus">×</button>
+      <button type="button" class="text-gray-300 hover:text-red-400 transition-colors text-xl leading-none flex-shrink-0 font-light" onclick="this.closest('.candidate-row').remove()" title="Hapus">×</button>
     `;
     container.appendChild(div);
   }
@@ -463,12 +538,13 @@
       document.getElementById('dash-creator').textContent = `Dibuat oleh ${session.created_by_username}`;
 
       const isClosed = session.status === 'closed';
-      document.getElementById('dash-closed-badge').style.display = isClosed ? 'inline-block' : 'none';
+      document.getElementById('dash-closed-badge').style.display = isClosed ? 'inline-flex' : 'none';
+      document.getElementById('dash-live-badge').style.display = isClosed ? 'none' : 'inline-flex';
       document.getElementById('dash-closed-banner').style.display = isClosed ? 'block' : 'none';
       document.getElementById('btn-enter-tally').disabled = isClosed;
       document.getElementById('btn-enter-tally').className = isClosed
-        ? 'btn flex-1 bg-zinc-800 text-zinc-500 cursor-not-allowed'
-        : 'btn btn-primary flex-1';
+        ? 'btn flex-1 justify-center bg-gray-100 text-gray-400 cursor-not-allowed'
+        : 'btn btn-primary flex-1 justify-center';
 
       const isAdmin = state.currentUser && state.currentUser.id === session.created_by_user_id;
       const adminControls = document.getElementById('dash-admin-controls');
@@ -476,7 +552,9 @@
       if (isAdmin) {
         const btn = document.getElementById('btn-toggle-status');
         btn.textContent = isClosed ? 'Buka Kembali' : 'Tutup Sesi';
-        btn.className = isClosed ? 'btn btn-secondary text-xs' : 'btn bg-zinc-800 hover:bg-zinc-700 text-yellow-400 border border-zinc-700 text-xs';
+        btn.className = isClosed
+          ? 'btn btn-secondary text-xs'
+          : 'btn btn-secondary text-xs text-amber-600';
       }
 
       const pct = total_tps > 0 ? Math.round((tps_reported / total_tps) * 100) : 0;
@@ -486,30 +564,29 @@
 
       const candsEl = document.getElementById('dash-candidates');
       if (!candidates.length) {
-        candsEl.innerHTML = '<p class="text-zinc-600 text-sm text-center">Belum ada suara masuk</p>';
+        candsEl.innerHTML = `<div class="text-center text-gray-400 py-8 text-sm">Belum ada suara masuk</div>`;
       } else {
         candsEl.innerHTML = candidates.map((c, i) => {
-          const rankClass = i === 0 ? 'bg-yellow-900/20 border-l-4 border-yellow-500' :
-                           i === 1 ? 'border-l-4 border-zinc-500' :
-                           i === 2 ? 'border-l-4 border-orange-700' : 'border-l-4 border-zinc-800';
+          const rankMeta = [
+            { border: '#f59e0b', bg: '#fffbeb', badge: '<span style="background:#fef3c7;color:#d97706;" class="text-xs font-bold px-2 py-0.5 rounded-full">🥇 #1</span>' },
+            { border: '#9ca3af', bg: '#f9fafb', badge: '<span style="background:#f3f4f6;color:#6b7280;" class="text-xs font-bold px-2 py-0.5 rounded-full">🥈 #2</span>' },
+            { border: '#cd7f32', bg: '#fff7f0', badge: '<span style="background:#fff7ed;color:#c2410c;" class="text-xs font-bold px-2 py-0.5 rounded-full">🥉 #3</span>' },
+          ];
+          const rank = rankMeta[i] || { border: '#e5e7eb', bg: '#fff', badge: `<span class="text-xs font-medium text-gray-400 px-1.5 py-0.5 rounded-full bg-gray-100">#${i+1}</span>` };
           const barColor = CANDIDATE_COLORS[i % CANDIDATE_COLORS.length];
-          const rankLabel = i === 0 ? '#1' : i === 1 ? '#2' : i === 2 ? '#3' : `#${i+1}`;
-          const rankBadge = i === 0
-            ? '<span class="text-xs font-bold text-yellow-400 bg-yellow-900/30 px-1.5 py-0.5 rounded">#1</span>'
-            : `<span class="text-xs font-medium text-zinc-500">${rankLabel}</span>`;
-          return `<div class="card ${rankClass} py-3">
-            <div class="flex items-center justify-between mb-2">
+          return `<div class="card py-3" style="border-left: 4px solid ${rank.border}; background: ${rank.bg}; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+            <div class="flex items-center justify-between mb-2.5">
               <div class="flex items-center gap-2">
-                ${rankBadge}
-                <span class="font-medium text-zinc-200">${c.ballot_number ? c.ballot_number + '. ' : ''}${esc(c.name)}</span>
+                ${rank.badge}
+                <span class="font-semibold text-gray-800">${c.ballot_number ? c.ballot_number + '. ' : ''}${esc(c.name)}</span>
               </div>
               <div class="text-right">
-                <span class="font-bold text-zinc-100">${Number(c.total_votes).toLocaleString()}</span>
-                <span class="text-zinc-500 text-sm ml-1">${c.pct}%</span>
+                <span class="font-bold text-gray-900 text-base">${Number(c.total_votes).toLocaleString()}</span>
+                <span class="text-gray-400 text-sm ml-1">${c.pct}%</span>
               </div>
             </div>
-            <div class="w-full bg-zinc-800 rounded-full h-2">
-              <div class="${barColor} h-2 rounded-full transition-all" style="width:${c.pct}%"></div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5">
+              <div class="${barColor} h-2.5 rounded-full transition-all" style="width:${c.pct}%"></div>
             </div>
           </div>`;
         }).join('');
@@ -547,7 +624,7 @@
     const container = document.getElementById('tally-candidate-inputs');
     container.innerHTML = state.currentCandidates.map(c => `
       <div>
-        <label class="label">${c.ballot_number ? c.ballot_number + '. ' : ''}${esc(c.name)}</label>
+        <label class="label">${c.ballot_number ? `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-xs font-bold mr-1" style="background:#1e3a5f;">${c.ballot_number}</span>` : ''}${esc(c.name)}</label>
         <input type="number" min="0" value="0" class="input tally-vote-input" data-candidate-id="${c.id}">
       </div>
     `).join('');
@@ -614,11 +691,21 @@
   async function openReports() {
     showView('reports');
     const el = document.getElementById('reports-content');
-    el.innerHTML = '<p class="text-zinc-600 text-sm py-4">Memuat...</p>';
+    el.innerHTML = `<div class="text-center py-10">
+      <svg class="animate-spin w-6 h-6 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>`;
     try {
       const { reports } = await api(`/api/sessions/${state.currentSessionId}/reports`);
       if (!reports || reports.length === 0) {
-        el.innerHTML = '<p class="text-zinc-600 text-sm text-center py-8">Belum ada laporan</p>';
+        el.innerHTML = `<div class="text-center py-12 text-gray-400">
+          <svg class="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <p class="text-sm">Belum ada laporan</p>
+        </div>`;
         return;
       }
       const candMap = {};
@@ -627,20 +714,20 @@
       el.innerHTML = reports.map(r => {
         const votesHtml = (r.votes || []).filter(v => v && v.candidate_id).map(v => {
           const c = candMap[v.candidate_id];
-          return c ? `<span class="text-zinc-400">${c.ballot_number ? c.ballot_number + '. ' : ''}${esc(c.name)}: <strong class="text-zinc-200">${v.votes}</strong></span>` : '';
+          return c ? `<span class="text-gray-500">${c.ballot_number ? c.ballot_number + '. ' : ''}${esc(c.name)}: <strong class="text-gray-800">${v.votes}</strong></span>` : '';
         }).join(' &nbsp;·&nbsp; ');
         const isUpdated = r.updated_at !== r.created_at;
-        return `<div class="card text-sm">
-          <div class="flex justify-between items-start">
-            <span class="font-medium text-zinc-200">${esc(r.tps_number)}</span>
-            <span class="text-zinc-600 text-xs">${fmtDate(r.created_at)}${isUpdated ? ' <span class="text-yellow-600">*diperbarui</span>' : ''}</span>
+        return `<div class="card shadow-sm text-sm hover:shadow-md transition-shadow">
+          <div class="flex justify-between items-start mb-1">
+            <span class="font-semibold text-gray-900">${esc(r.tps_number)}</span>
+            <span class="text-gray-400 text-xs">${fmtDate(r.created_at)}${isUpdated ? ' <span class="text-amber-500">*diperbarui</span>' : ''}</span>
           </div>
-          <div class="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">${votesHtml}</div>
-          <div class="mt-1 text-zinc-600 text-xs">oleh ${esc(r.submitted_by_username)}</div>
+          <div class="flex flex-wrap gap-x-4 gap-y-0.5 mb-1">${votesHtml}</div>
+          <div class="text-gray-400 text-xs">oleh ${esc(r.submitted_by_username)}</div>
         </div>`;
       }).join('');
     } catch (err) {
-      el.innerHTML = `<p class="text-red-400 text-sm py-4">${esc(err.message)}</p>`;
+      el.innerHTML = `<div class="card border-red-200 bg-red-50 text-red-600 text-sm py-4 text-center">${esc(err.message)}</div>`;
     }
   }
 
@@ -718,59 +805,96 @@
 
     function sortTh(field, label) {
       const isActive = state.rekapSortField === field;
-      const arrow = isActive ? (state.rekapSortDir === 'asc' ? ' ↑' : ' ↓') : '';
-      return `<th class="text-left px-3 py-3 cursor-pointer hover:text-zinc-200 whitespace-nowrap select-none" onclick="setRekapSort('${field}')">${label}${arrow}</th>`;
+      const arrow = isActive ? (state.rekapSortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕';
+      const activeStyle = isActive ? 'color:#1e3a5f;font-weight:600;' : '';
+      return `<th class="text-left px-3 py-3 cursor-pointer hover:text-gray-700 whitespace-nowrap select-none font-medium" style="${activeStyle}" onclick="setRekapSort('${field}')">${label}<span class="text-gray-300 ml-0.5 text-xs">${arrow}</span></th>`;
     }
 
     const candCols = candidates.map((c, i) =>
-      `<th class="text-right px-3 py-3 whitespace-nowrap">${c.ballot_number ? c.ballot_number + '.' : (i+1) + '.'} ${esc(c.name.split('–')[0].trim())}</th>`
+      `<th class="text-right px-3 py-3 whitespace-nowrap font-medium">${c.ballot_number ? c.ballot_number + '.' : (i+1) + '.'} ${esc(c.name.split('–')[0].trim())}</th>`
     ).join('');
 
-    thead.innerHTML = `<tr>${sortTh('tps_number','TPS')}${candCols}${sortTh('total','Total')}${sortTh('submitter','Saksi')}${sortTh('time','Waktu')}<th class="px-3 py-3">Aksi</th></tr>`;
+    thead.innerHTML = `<tr>${sortTh('tps_number','TPS')}${candCols}${sortTh('total','Total')}${sortTh('submitter','Saksi')}${sortTh('time','Waktu')}<th class="px-3 py-3 font-medium">Aksi</th></tr>`;
 
-    tbody.innerHTML = reports.map(r => {
+    tbody.innerHTML = reports.map((r, idx) => {
       const votesMap = {};
       (r.votes || []).forEach(v => { if (v && v.candidate_id) votesMap[v.candidate_id] = v.votes; });
       const totalVotes = candidates.reduce((s, c) => s + (votesMap[c.id] || 0), 0);
       const isUpdated = r.updated_at && r.created_at && r.updated_at !== r.created_at;
 
       const candCells = candidates.map(c =>
-        `<td class="text-right px-3 py-2 font-mono text-zinc-300">${votesMap[c.id] || 0}</td>`
+        `<td class="text-right px-3 py-2.5 font-mono text-gray-700">${votesMap[c.id] || 0}</td>`
       ).join('');
 
-      const detailHtml = `<tr id="detail-${r.id}" style="display:none" class="bg-zinc-900/50">
-        <td colspan="${candidates.length + 5}" class="px-4 py-3">
-          <div class="grid grid-cols-2 gap-4 text-sm">
+      const rowBg = idx % 2 === 1 ? 'background:#f9fafb;' : '';
+
+      const detailHtml = `<tr id="detail-${r.id}" style="display:none;background:#f0f4f8;">
+        <td colspan="${candidates.length + 5}" class="px-5 py-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm">
             <div>
-              <div class="text-zinc-500 text-xs mb-1">Suara per kandidat</div>
-              ${candidates.map(c => `<div class="flex justify-between py-0.5"><span class="text-zinc-400">${esc(c.name)}</span><span class="font-mono text-zinc-200">${votesMap[c.id] || 0}</span></div>`).join('')}
+              <div class="text-gray-400 text-xs font-medium uppercase mb-2">Suara per kandidat</div>
+              ${candidates.map(c => `<div class="flex justify-between py-1 border-b border-gray-100"><span class="text-gray-600">${esc(c.name)}</span><span class="font-mono font-semibold text-gray-800">${votesMap[c.id] || 0}</span></div>`).join('')}
             </div>
             <div>
-              <div class="text-zinc-500 text-xs mb-1">Detail laporan</div>
-              <div class="text-zinc-400 text-xs">Saksi: <span class="text-zinc-200">${esc(r.submitted_by_username)}</span></div>
-              <div class="text-zinc-400 text-xs mt-1">Waktu: <span class="text-zinc-200">${fmtDate(r.created_at)}</span></div>
-              ${isUpdated ? `<div class="text-yellow-600 text-xs mt-1">Diperbarui: ${fmtDate(r.updated_at)}</div>` : ''}
-              <div class="text-zinc-400 text-xs mt-2">Catatan:</div>
-              <div class="text-zinc-300 text-xs mt-0.5">${r.notes ? esc(r.notes) : '<span class="text-zinc-600">— (tidak ada catatan)</span>'}</div>
+              <div class="text-gray-400 text-xs font-medium uppercase mb-2">Detail laporan</div>
+              <div class="text-gray-500 text-xs mb-1">Saksi: <span class="text-gray-800 font-medium">${esc(r.submitted_by_username)}</span></div>
+              <div class="text-gray-500 text-xs mb-1">Waktu: <span class="text-gray-800">${fmtDate(r.created_at)}</span></div>
+              ${isUpdated ? `<div class="text-amber-500 text-xs mb-1">Diperbarui: ${fmtDate(r.updated_at)}</div>` : ''}
+              <div class="text-gray-400 text-xs mt-2 mb-0.5">Catatan:</div>
+              <div class="text-gray-700 text-xs">${r.notes ? esc(r.notes) : '<span class="text-gray-300 italic">tidak ada catatan</span>'}</div>
             </div>
           </div>
         </td>
       </tr>`;
 
-      return `<tr class="border-t border-zinc-800 hover:bg-zinc-900/40 transition-colors">
-        <td class="px-3 py-2 font-medium text-zinc-200 whitespace-nowrap">${esc(r.tps_number)}${isUpdated ? ' <span class="text-yellow-600 text-xs" title="Diperbarui">*</span>' : ''}</td>
+      return `<tr style="${rowBg}" class="border-t border-gray-100 hover:bg-blue-50 transition-colors">
+        <td class="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">${esc(r.tps_number)}${isUpdated ? ' <span class="text-amber-400 text-xs" title="Diperbarui">✎</span>' : ''}</td>
         ${candCells}
-        <td class="text-right px-3 py-2 font-mono font-bold text-zinc-100">${totalVotes}</td>
-        <td class="px-3 py-2 text-zinc-400 text-xs">${esc(r.submitted_by_username)}</td>
-        <td class="px-3 py-2 text-zinc-500 text-xs whitespace-nowrap">${fmtDate(r.created_at)}</td>
-        <td class="px-3 py-2 whitespace-nowrap">
-          <div class="flex gap-1">
-            <button class="btn-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs" onclick="toggleDetail(${r.id})">▼ Detail</button>
-            <button class="btn-sm bg-red-900/40 hover:bg-red-900/60 text-red-400 border border-red-900 text-xs" onclick="deleteReport(${r.id}, '${esc(r.tps_number).replace(/'/g,"\\'")}')">Hapus</button>
-          </div>
+        <td class="text-right px-3 py-2.5 font-mono font-bold text-gray-900">${totalVotes}</td>
+        <td class="px-3 py-2.5 text-gray-500 text-xs">${esc(r.submitted_by_username)}</td>
+        <td class="px-3 py-2.5 text-gray-400 text-xs whitespace-nowrap">${fmtDate(r.created_at)}</td>
+        <td class="px-3 py-2.5 whitespace-nowrap">
+          <div id="actions-${r.id}" class="flex gap-1 items-center">${buildActionsHtml(r.id, r.tps_number)}</div>
         </td>
       </tr>${detailHtml}`;
     }).join('');
+  }
+
+  function buildActionsHtml(reportId, tpsNumber) {
+    const safe = esc(tpsNumber).replace(/'/g, "\\'");
+    return `<button class="btn-sm bg-gray-100 hover:bg-gray-200 text-gray-600" onclick="toggleDetail(${reportId})">▼ Detail</button>
+      <button class="btn-sm bg-red-50 hover:bg-red-100 text-red-500 border border-red-200 ml-1" onclick="showDeleteConfirm(${reportId}, '${safe}')">Hapus</button>`;
+  }
+
+  function showDeleteConfirm(reportId, tpsNumber) {
+    const el = document.getElementById(`actions-${reportId}`);
+    if (!el) return;
+    const safe = esc(tpsNumber).replace(/'/g, "\\'");
+    el.innerHTML = `<span class="text-xs text-gray-600 mr-1">Hapus laporan ini?</span>
+      <button class="btn-sm bg-red-500 hover:bg-red-600 text-white mr-1" onclick="doDeleteReport(${reportId}, '${safe}')">Ya, Hapus</button>
+      <button class="btn-sm bg-gray-100 hover:bg-gray-200 text-gray-600" onclick="cancelDeleteConfirm(${reportId})">Batal</button>`;
+  }
+
+  function cancelDeleteConfirm(reportId) {
+    const report = state.adminReports.find(r => r.id === reportId);
+    if (!report) return;
+    const el = document.getElementById(`actions-${reportId}`);
+    if (el) el.innerHTML = buildActionsHtml(reportId, report.tps_number);
+  }
+
+  async function doDeleteReport(reportId, tpsNumber) {
+    try {
+      await api(`/api/sessions/${state.currentSessionId}/reports/${reportId}`, { method: 'DELETE' });
+      state.adminReports = state.adminReports.filter(r => r.id !== reportId);
+      const wRes = await api(`/api/sessions/${state.currentSessionId}/admin/witnesses`);
+      state.adminWitnesses = wRes.witnesses || [];
+      renderRekapTable();
+      if (state.activeAdminTab === 'witnesses') renderWitnessesTable();
+      if (state.activeAdminTab === 'progress') renderProgressGrid();
+      showToast(`Laporan ${tpsNumber} berhasil dihapus`);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   }
 
   function setRekapSort(field) {
@@ -786,22 +910,6 @@
   function toggleDetail(reportId) {
     const row = document.getElementById(`detail-${reportId}`);
     if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
-  }
-
-  async function deleteReport(reportId, tpsNumber) {
-    if (!confirm(`Hapus laporan ${tpsNumber}? Suara akan dihapus dari rekap.`)) return;
-    try {
-      await api(`/api/sessions/${state.currentSessionId}/reports/${reportId}`, { method: 'DELETE' });
-      state.adminReports = state.adminReports.filter(r => r.id !== reportId);
-      const wRes = await api(`/api/sessions/${state.currentSessionId}/admin/witnesses`);
-      state.adminWitnesses = wRes.witnesses || [];
-      renderRekapTable();
-      if (state.activeAdminTab === 'witnesses') renderWitnessesTable();
-      if (state.activeAdminTab === 'progress') renderProgressGrid();
-      showToast(`Laporan ${tpsNumber} berhasil dihapus`);
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
   }
 
   function clearWitnessFilter() {
@@ -820,16 +928,21 @@
       return;
     }
     emptyEl.style.display = 'none';
-    tbody.innerHTML = witnesses.map(w => `
-      <tr class="border-t border-zinc-800 hover:bg-zinc-900/40 transition-colors">
-        <td class="px-4 py-3 font-medium text-zinc-200">${esc(w.submitted_by_username)}</td>
-        <td class="px-4 py-3 text-right font-mono text-zinc-300">${w.tps_count}</td>
-        <td class="px-4 py-3 text-zinc-500 text-sm">${fmtDate(w.last_submitted_at)}</td>
-        <td class="px-4 py-3">
-          <button class="btn-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs" onclick="filterRekapByWitness('${esc(w.submitted_by_username).replace(/'/g,"\\'")}')">Lihat Laporan</button>
+    tbody.innerHTML = witnesses.map((w, idx) => {
+      const initials = (w.submitted_by_username || '?').slice(0, 2).toUpperCase();
+      const rowBg = idx % 2 === 1 ? 'style="background:#f9fafb;"' : '';
+      return `<tr ${rowBg} class="border-t border-gray-100 hover:bg-blue-50 transition-colors">
+        <td class="px-4 py-3 flex items-center gap-3">
+          <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style="background:#1e3a5f;">${initials}</span>
+          <span class="font-medium text-gray-800">${esc(w.submitted_by_username)}</span>
         </td>
-      </tr>
-    `).join('');
+        <td class="px-4 py-3 text-right font-mono font-semibold text-gray-700">${w.tps_count}</td>
+        <td class="px-4 py-3 text-gray-400 text-sm">${fmtDate(w.last_submitted_at)}</td>
+        <td class="px-4 py-3">
+          <button class="btn-sm bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs" onclick="filterRekapByWitness('${esc(w.submitted_by_username).replace(/'/g,"\\'")}')">Lihat Laporan</button>
+        </td>
+      </tr>`;
+    }).join('');
   }
 
   function filterRekapByWitness(username) {
@@ -849,27 +962,27 @@
     const belumLapor = Math.max(0, totalTps - reported);
 
     document.getElementById('progress-summary').innerHTML =
-      `<span class="text-green-400 font-medium">${reported} sudah lapor</span> &nbsp;·&nbsp; <span class="text-zinc-500">${belumLapor} belum lapor</span> &nbsp;·&nbsp; <span class="text-zinc-400">${totalTps} total TPS</span>`;
+      `<span style="color:#16a34a;" class="font-semibold">✓ ${reported} sudah lapor</span> &nbsp;·&nbsp; <span class="text-gray-400">${belumLapor} belum lapor</span> &nbsp;·&nbsp; <span class="text-gray-500">${totalTps} total TPS</span>`;
 
     const tiles = [];
     for (let i = 1; i <= totalTps; i++) {
       const tpsNum = `TPS ${String(i).padStart(3, '0')}`;
       if (reportedSet.has(tpsNum)) {
-        tiles.push(`<div class="bg-green-900/40 border border-green-700/50 rounded-lg p-2 text-xs">
-          <div class="font-medium text-green-400 truncate">${esc(tpsNum)}</div>
-          <div class="text-green-700 truncate text-xs mt-0.5">${esc(reporterMap[tpsNum] || '')}</div>
+        tiles.push(`<div class="rounded-lg p-2 text-xs border" style="background:#f0fdf4;border-color:#bbf7d0;">
+          <div class="font-semibold truncate" style="color:#15803d;">✓ ${esc(tpsNum)}</div>
+          <div class="truncate text-xs mt-0.5" style="color:#86efac;">${esc(reporterMap[tpsNum] || '')}</div>
         </div>`);
       } else {
-        tiles.push(`<div class="bg-zinc-900/40 border border-zinc-800 rounded-lg p-2 text-xs">
-          <div class="font-medium text-zinc-600 truncate">${esc(tpsNum)}</div>
-          <div class="text-zinc-700 text-xs mt-0.5">Belum lapor</div>
+        tiles.push(`<div class="rounded-lg p-2 text-xs border border-gray-200 bg-white">
+          <div class="font-medium text-gray-400 truncate">${esc(tpsNum)}</div>
+          <div class="text-gray-300 text-xs mt-0.5">Belum lapor</div>
         </div>`);
       }
     }
 
     document.getElementById('progress-grid').innerHTML = tiles.length
       ? `<div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">${tiles.join('')}</div>`
-      : '<p class="text-zinc-600 text-sm">Tidak ada TPS yang dikonfigurasi</p>';
+      : '<p class="text-gray-400 text-sm">Tidak ada TPS yang dikonfigurasi</p>';
   }
 
   // ─── Utilities ───────────────────────────────────────────────────────────────
