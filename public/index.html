@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
+
   <script>
   // usernode-dev-console@1
   (function () {
@@ -63,59 +63,1122 @@
     try { post('info', ['[dev-console ready]'], { kind: 'ready' }); } catch (_) {}
   })();
   </script>
-  <title>QCP</title>
+
+  <title>QCP — Quick Count Portal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config = { darkMode: 'class' }</script>
+  <script src="https://social-vibecoding.usernodelabs.org/usernode-bridge/v1/bridge.js"></script>
+  <style>
+    .tab-btn { padding: 0.375rem 0.875rem; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500; transition: all 0.15s; cursor: pointer; border: none; background: transparent; }
+    .tab-btn:hover { background: rgba(148,163,184,0.1); }
+    .tab-btn.active { background: rgba(148,163,184,0.15); color: #f1f5f9; }
+    .tab-btn:not(.active) { color: #94a3b8; }
+    .progress-bar { height: 8px; border-radius: 4px; background: #1e293b; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+    input[type=number], input[type=text], input[type=url], select, textarea {
+      background: #1e293b; border: 1px solid #334155; color: #f1f5f9; border-radius: 0.375rem;
+      padding: 0.5rem 0.75rem; width: 100%; outline: none;
+    }
+    input[type=number]:focus, input[type=text]:focus, input[type=url]:focus, select:focus, textarea:focus {
+      border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+    }
+    select:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: #3b82f6; color: white; padding: 0.5rem 1.25rem; border-radius: 0.375rem; font-weight: 500; cursor: pointer; border: none; transition: background 0.15s; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-danger { background: #ef4444; color: white; padding: 0.375rem 0.875rem; border-radius: 0.375rem; font-size: 0.875rem; cursor: pointer; border: none; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-success { background: #22c55e; color: white; padding: 0.375rem 0.875rem; border-radius: 0.375rem; font-size: 0.875rem; cursor: pointer; border: none; }
+    .btn-success:hover { background: #16a34a; }
+    .btn-ghost { background: transparent; border: 1px solid #334155; color: #94a3b8; padding: 0.375rem 0.875rem; border-radius: 0.375rem; font-size: 0.875rem; cursor: pointer; }
+    .btn-ghost:hover { border-color: #64748b; color: #cbd5e1; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 0.5rem 0.75rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 1px solid #1e293b; }
+    td { padding: 0.625rem 0.75rem; border-bottom: 1px solid #1e293b; font-size: 0.875rem; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(30,41,59,0.5); }
+    .mini-bar-row { display: flex; gap: 4px; align-items: center; }
+    .mini-bar { height: 6px; border-radius: 3px; min-width: 2px; }
+    label { display: block; margin-bottom: 0.375rem; font-size: 0.875rem; color: #94a3b8; }
+  </style>
 </head>
-<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col items-center justify-center gap-8 p-4">
-  <h1 class="text-2xl font-bold">QCP</h1>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
 
-  <button id="press-btn" class="w-32 h-32 rounded-full bg-violet-600 hover:bg-violet-500 active:scale-95 transition-all text-white text-xl font-bold shadow-lg shadow-violet-600/30">
-    Press!
-  </button>
+  <!-- Fixed Header -->
+  <header class="fixed top-0 left-0 right-0 z-50 bg-slate-900 border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
+      <div id="election-name" class="font-bold text-base truncate max-w-xs text-slate-100">QCP — Quick Count Portal</div>
+      <nav class="flex gap-1 flex-shrink-0">
+        <button class="tab-btn" data-view="results" onclick="showView('results')">Results</button>
+        <button class="tab-btn" data-view="submit" onclick="showView('submit')">Submit</button>
+        <button class="tab-btn" data-view="pending" onclick="showView('pending')">
+          Pending<span id="pending-badge" class="hidden ml-1.5 bg-amber-500 text-black text-xs rounded-full px-1.5 leading-5 inline-block"></span>
+        </button>
+        <button id="admin-tab" class="tab-btn hidden" data-view="admin" onclick="showView('admin')">Admin</button>
+      </nav>
+    </div>
+  </header>
 
-  <div id="count" class="text-lg text-zinc-400">0 total presses</div>
+  <!-- Main content -->
+  <main class="pt-14">
 
-  <div class="w-full max-w-sm">
-    <h2 class="text-sm font-medium text-zinc-500 mb-2 text-center">Leaderboard</h2>
-    <div id="leaderboard" class="space-y-1"></div>
-  </div>
+    <!-- =================== RESULTS VIEW =================== -->
+    <section id="view-results" class="max-w-7xl mx-auto px-4 py-6">
+      <div id="results-reporting" class="text-center text-sm text-slate-400 mb-5"></div>
+      <div id="candidate-cards" class="grid gap-4 mb-8" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))"></div>
 
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token') || '';
-    const headers = token ? { 'x-usernode-token': token } : {};
+      <!-- Geo drill-down -->
+      <div class="bg-slate-900 rounded-lg border border-slate-800">
+        <div id="results-breadcrumb" class="px-4 py-3 border-b border-slate-800 text-sm text-slate-400 flex items-center gap-1 flex-wrap"></div>
+        <div id="results-table" class="overflow-x-auto"></div>
+      </div>
 
-    async function loadLeaderboard() {
-      const res = await fetch('/api/leaderboard', { headers });
-      if (!res.ok) return;
-      const { leaderboard } = await res.json();
-      const el = document.getElementById('leaderboard');
-      if (!leaderboard.length) {
-        el.innerHTML = '<p class="text-center text-zinc-600 text-sm">No presses yet</p>';
-        return;
-      }
-      el.innerHTML = leaderboard.map((r, i) =>
-        '<div class="flex justify-between px-3 py-1 rounded ' + (i === 0 ? 'bg-violet-600/20 text-violet-300' : 'text-zinc-400') + '">' +
-        '<span>' + (i + 1) + '. ' + r.username + '</span>' +
-        '<span class="font-mono">' + r.presses + '</span></div>'
-      ).join('');
-      const total = leaderboard.reduce((s, r) => s + parseInt(r.presses), 0);
-      document.getElementById('count').textContent = total + ' total presses';
+      <div id="results-footer" class="mt-3 text-center text-xs text-slate-600"></div>
+    </section>
+
+    <!-- =================== SUBMIT VIEW =================== -->
+    <section id="view-submit" hidden class="max-w-2xl mx-auto px-4 py-6">
+      <h2 class="text-xl font-bold mb-6">Submit Entry</h2>
+      <div class="space-y-4 mb-6">
+        <div>
+          <label for="province-select">Province</label>
+          <select id="province-select">
+            <option value="">— Select Province —</option>
+          </select>
+        </div>
+        <div>
+          <label for="city-select">City / Regency</label>
+          <select id="city-select" disabled>
+            <option value="">— Select City —</option>
+          </select>
+        </div>
+        <div>
+          <label for="district-select">District (Kecamatan)</label>
+          <select id="district-select" disabled>
+            <option value="">— Select District —</option>
+          </select>
+        </div>
+        <div>
+          <label for="tps-select">TPS (Polling Station)</label>
+          <select id="tps-select" disabled>
+            <option value="">— Select TPS —</option>
+          </select>
+        </div>
+      </div>
+      <div id="tps-status-area"></div>
+    </section>
+
+    <!-- =================== PENDING VIEW =================== -->
+    <section id="view-pending" hidden class="max-w-4xl mx-auto px-4 py-6">
+      <h2 class="text-xl font-bold mb-2">Pending Confirmations</h2>
+      <p class="text-sm text-slate-500 mb-6">Entries awaiting a second person to verify. You cannot confirm your own submissions.</p>
+      <div id="pending-list"></div>
+    </section>
+
+    <!-- =================== ADMIN VIEW =================== -->
+    <section id="view-admin" hidden class="max-w-5xl mx-auto px-4 py-6">
+      <div id="admin-panel">
+        <h2 class="text-xl font-bold mb-6">Admin Panel</h2>
+
+        <!-- Admin sub-tabs -->
+        <div class="flex gap-2 mb-6 border-b border-slate-800 pb-0">
+          <button class="admin-tab px-4 py-2 text-sm font-medium border-b-2 -mb-px cursor-pointer bg-transparent border-transparent text-slate-400 hover:text-slate-200" data-atab="election" onclick="showAdminTab('election')">Election</button>
+          <button class="admin-tab px-4 py-2 text-sm font-medium border-b-2 -mb-px cursor-pointer bg-transparent border-transparent text-slate-400 hover:text-slate-200" data-atab="candidates" onclick="showAdminTab('candidates')">Candidates</button>
+          <button class="admin-tab px-4 py-2 text-sm font-medium border-b-2 -mb-px cursor-pointer bg-transparent border-transparent text-slate-400 hover:text-slate-200" data-atab="geography" onclick="showAdminTab('geography')">Geography</button>
+          <button class="admin-tab px-4 py-2 text-sm font-medium border-b-2 -mb-px cursor-pointer bg-transparent border-transparent text-slate-400 hover:text-slate-200" data-atab="entries" onclick="showAdminTab('entries')">Entries</button>
+          <button class="admin-tab px-4 py-2 text-sm font-medium border-b-2 -mb-px cursor-pointer bg-transparent border-transparent text-slate-400 hover:text-slate-200" data-atab="admins" onclick="showAdminTab('admins')">Admins</button>
+        </div>
+
+        <div id="admin-tab-election" class="admin-tab-content"></div>
+        <div id="admin-tab-candidates" class="admin-tab-content hidden"></div>
+        <div id="admin-tab-geography" class="admin-tab-content hidden"></div>
+        <div id="admin-tab-entries" class="admin-tab-content hidden"></div>
+        <div id="admin-tab-admins" class="admin-tab-content hidden"></div>
+      </div>
+    </section>
+
+  </main>
+
+<script>
+'use strict';
+
+const params = new URLSearchParams(window.location.search);
+const TOKEN = params.get('token') || '';
+const HEADERS = Object.assign({ 'Content-Type': 'application/json' }, TOKEN ? { 'x-usernode-token': TOKEN } : {});
+
+const state = {
+  election: null,
+  candidates: [],
+  isAdmin: false,
+  isStaging: false,
+  lastRefreshed: 0,
+  refreshTimer: null,
+  countdownTimer: null,
+  drilldown: { level: 'national', id: null, path: [] },
+  currentView: null,
+};
+
+async function api(url, opts) {
+  const options = Object.assign({ headers: HEADERS }, opts || {});
+  if (options.body && typeof options.body !== 'string') {
+    options.body = JSON.stringify(options.body);
+  }
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    let err;
+    try { err = await res.json(); } catch (_) { err = { error: res.statusText }; }
+    const e = new Error(err.error || res.statusText);
+    e.status = res.status;
+    throw e;
+  }
+  return res.json();
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function initials(name) {
+  return (name || '').split(/\s+/).slice(0,2).map(w => w[0] || '').join('').toUpperCase();
+}
+
+function pct(v, total) {
+  if (!total) return '0.0';
+  return (v / total * 100).toFixed(1);
+}
+
+// ---- Init ----
+
+async function init() {
+  try {
+    const [{ election, candidates }, { isAdmin }, { isStaging }] = await Promise.all([
+      api('/api/elections/active'),
+      api('/api/admin/check'),
+      api('/api/status'),
+    ]);
+    state.election = election;
+    state.candidates = candidates;
+    state.isAdmin = isAdmin;
+    state.isStaging = isStaging;
+
+    if (election) {
+      document.getElementById('election-name').textContent = election.name;
+    }
+    if (isAdmin) {
+      document.getElementById('admin-tab').classList.remove('hidden');
+    }
+  } catch (e) {
+    console.error('Init error:', e);
+  }
+
+  const view = params.get('view') || 'results';
+  await showView(view);
+  setupAutoRefresh();
+}
+
+// ---- View management ----
+
+async function showView(name) {
+  ['results', 'submit', 'pending', 'admin'].forEach(v => {
+    document.getElementById('view-' + v).hidden = v !== name;
+  });
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const active = btn.dataset.view === name;
+    btn.classList.toggle('active', active);
+  });
+  state.currentView = name;
+
+  if (name === 'results') await loadResults();
+  else if (name === 'submit') await loadSubmit();
+  else if (name === 'pending') await loadPending();
+  else if (name === 'admin') await loadAdmin();
+}
+
+// ---- Results ----
+
+async function loadResults() {
+  if (!state.election) {
+    document.getElementById('candidate-cards').innerHTML =
+      '<p class="col-span-3 text-slate-500 text-center py-8">No active election. An admin can create one in the Admin panel.</p>';
+    document.getElementById('results-reporting').textContent = '';
+    document.getElementById('results-table').innerHTML = '';
+    document.getElementById('results-breadcrumb').innerHTML = '';
+    return;
+  }
+  await refreshResults();
+}
+
+async function refreshResults() {
+  try {
+    const [totals, provinces] = await Promise.all([
+      api('/api/results'),
+      api('/api/results/provinces'),
+    ]);
+    state.lastRefreshed = Date.now();
+    renderCandidateCards(totals);
+
+    // Restore drilldown or show provinces
+    if (state.drilldown.level === 'national') {
+      renderGeoTable('province', provinces, null);
+    } else {
+      await drillTo(state.drilldown.level, state.drilldown.id, state.drilldown.path, true);
+    }
+  } catch (e) {
+    console.error('Results refresh error:', e);
+  }
+}
+
+function renderCandidateCards(totals) {
+  const totalVotes = totals.votes.reduce((s, v) => s + parseInt(v.total_votes), 0);
+  const voteMap = {};
+  for (const v of totals.votes) voteMap[v.candidate_id] = parseInt(v.total_votes);
+
+  const pct_reported = totals.total_tps ? (totals.reported_tps / totals.total_tps * 100).toFixed(1) : '0.0';
+  document.getElementById('results-reporting').innerHTML =
+    `<strong class="text-slate-300">${totals.reported_tps.toLocaleString()}</strong> of <strong class="text-slate-300">${totals.total_tps.toLocaleString()}</strong> TPS reported <span class="text-slate-500">(${pct_reported}%)</span>`;
+
+  if (!state.candidates.length) {
+    document.getElementById('candidate-cards').innerHTML = '<p class="text-slate-500 col-span-3 text-center py-4">No candidates configured.</p>';
+    return;
+  }
+
+  document.getElementById('candidate-cards').innerHTML = state.candidates.map(c => {
+    const votes = voteMap[c.id] || 0;
+    const p = pct(votes, totalVotes);
+    const barW = totalVotes ? Math.max(1, votes / totalVotes * 100) : 0;
+    return `
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0" style="background:${esc(c.color)}">
+            ${c.photo_url ? `<img src="${esc(c.photo_url)}" class="w-12 h-12 rounded-full object-cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt=""><span class="hidden w-12 h-12 rounded-full items-center justify-center text-white font-bold" style="background:${esc(c.color)}">${esc(initials(c.name))}</span>` : esc(initials(c.name))}
+          </div>
+          <div class="min-w-0">
+            <div class="font-semibold truncate">${esc(c.name)}</div>
+            ${c.running_mate ? `<div class="text-xs text-slate-500 truncate">&amp; ${esc(c.running_mate)}</div>` : ''}
+          </div>
+        </div>
+        <div class="flex items-end justify-between">
+          <span class="text-3xl font-bold" style="color:${esc(c.color)}">${p}%</span>
+          <span class="font-mono text-slate-400 text-sm">${votes.toLocaleString()}</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:${barW}%;background:${esc(c.color)}"></div>
+        </div>
+        <div class="text-xs text-slate-600">No. ${c.sequence_number}</div>
+      </div>`;
+  }).join('');
+}
+
+async function drillTo(level, id, path, skipFetch) {
+  state.drilldown = { level, id, path };
+  let data;
+  if (!skipFetch) {
+    if (level === 'national') { data = await api('/api/results/provinces'); }
+    else if (level === 'province') { data = await api('/api/results/provinces/' + id); }
+    else if (level === 'city') { data = await api('/api/results/cities/' + id); }
+    else if (level === 'district') { data = await api('/api/results/districts/' + id); }
+  } else {
+    if (level === 'national') { data = await api('/api/results/provinces'); }
+    else if (level === 'province') { data = await api('/api/results/provinces/' + id); }
+    else if (level === 'city') { data = await api('/api/results/cities/' + id); }
+    else if (level === 'district') { data = await api('/api/results/districts/' + id); }
+  }
+  renderGeoTable(level, data, path);
+}
+
+function renderBreadcrumb(path) {
+  const bc = document.getElementById('results-breadcrumb');
+  const parts = [{ label: 'National', level: 'national', id: null, path: [] }];
+  for (let i = 0; i < path.length; i++) {
+    parts.push({ label: path[i].name, level: path[i].level, id: path[i].id, path: path.slice(0, i) });
+  }
+  bc.innerHTML = parts.map((p, i) => {
+    const isLast = i === parts.length - 1;
+    if (isLast) return `<span class="text-slate-300">${esc(p.label)}</span>`;
+    return `<button onclick="drillTo('${p.level}','${p.id}',${JSON.stringify(p.path)})" class="text-blue-400 hover:underline bg-transparent border-0 cursor-pointer p-0">${esc(p.label)}</button><span class="mx-1">›</span>`;
+  }).join('');
+}
+
+function renderGeoTable(currentLevel, data, path) {
+  path = path || [];
+  renderBreadcrumb(path);
+
+  if (currentLevel === 'national') {
+    // data is array of provinces
+    const rows = Array.isArray(data) ? data : [];
+    renderLocationTable(rows, 'province', path);
+  } else if (currentLevel === 'province') {
+    renderLocationTable(data.cities || [], 'city', path);
+  } else if (currentLevel === 'city') {
+    renderLocationTable(data.districts || [], 'district', path);
+  } else if (currentLevel === 'district') {
+    renderTpsTable(data.tps_list || [], path);
+  }
+}
+
+function renderLocationTable(rows, nextLevel, currentPath) {
+  const candidates = state.candidates.slice(0, 4);
+  if (!rows.length) {
+    document.getElementById('results-table').innerHTML = '<p class="text-slate-500 text-center py-8">No data available.</p>';
+    return;
+  }
+
+  const headers = candidates.map(c =>
+    `<th style="color:${esc(c.color)}">${esc(c.name.split(' ')[0])}</th>`
+  ).join('');
+
+  const tbody = rows.map(row => {
+    const voteVals = candidates.map(c => parseInt((row.votes || {})[c.id] || 0));
+    const totalV = voteVals.reduce((a, b) => a + b, 0);
+    const miniBar = candidates.map((c, i) => {
+      const w = totalV ? Math.max(2, voteVals[i] / totalV * 80) : 0;
+      return `<div class="mini-bar" style="width:${w}px;background:${esc(c.color)}"></div>`;
+    }).join('');
+    const vCells = voteVals.map(v => `<td class="font-mono text-xs text-slate-400">${v ? v.toLocaleString() : '—'}</td>`).join('');
+    const clickPath = [...currentPath, { level: nextLevel, id: row.id, name: row.name }];
+    return `<tr class="cursor-pointer" onclick="drillTo('${nextLevel}',${row.id},${JSON.stringify(clickPath)})">
+      <td class="font-medium text-blue-400 hover:underline">${esc(row.name)}</td>
+      <td class="text-slate-400 text-xs">${row.reported_tps} / ${row.total_tps}</td>
+      <td><div class="mini-bar-row">${miniBar}</div></td>
+      ${vCells}
+    </tr>`;
+  }).join('');
+
+  document.getElementById('results-table').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Location</th>
+        <th>Reported</th>
+        <th>Distribution</th>
+        ${headers}
+      </tr></thead>
+      <tbody>${tbody}</tbody>
+    </table>`;
+}
+
+function renderTpsTable(tpsList, path) {
+  if (!tpsList.length) {
+    document.getElementById('results-table').innerHTML = '<p class="text-slate-500 text-center py-8">No TPS in this district.</p>';
+    return;
+  }
+  const candidates = state.candidates.slice(0, 4);
+  const tbody = tpsList.map(t => {
+    let statusBadge;
+    if (!t.entry_id) {
+      statusBadge = '<span class="text-xs text-slate-600">No data</span>';
+    } else if (t.entry_status === 'pending') {
+      statusBadge = '<span class="text-xs text-amber-500 font-medium">Pending</span>';
+    } else {
+      statusBadge = '<span class="text-xs text-emerald-400 font-medium">Confirmed</span>';
     }
 
-    document.getElementById('press-btn').addEventListener('click', async () => {
-      try {
-        const res = await fetch('/api/press', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...headers },
-        });
-        if (res.ok) loadLeaderboard();
-        else if (res.status === 401) document.getElementById('count').textContent = 'Sign in to press!';
-      } catch {}
-    });
+    const vCells = candidates.map(c => {
+      const v = t.entry_status === 'confirmed' ? parseInt((t.votes || {})[c.id] || 0) : null;
+      return `<td class="font-mono text-xs text-slate-400">${v !== null ? (v || '0') : '—'}</td>`;
+    }).join('');
 
-    loadLeaderboard();
-  </script>
+    const photoLink = t.photo_url
+      ? ` <a href="${esc(t.photo_url)}" target="_blank" class="text-blue-400 hover:underline text-xs ml-1" onclick="event.stopPropagation()">photo</a>`
+      : '';
+
+    return `<tr>
+      <td class="font-mono text-sm">TPS ${esc(t.number)}</td>
+      <td>${statusBadge}${photoLink}</td>
+      ${vCells}
+    </tr>`;
+  }).join('');
+
+  const headers = candidates.map(c =>
+    `<th style="color:${esc(c.color)}">${esc(c.name.split(' ')[0])}</th>`
+  ).join('');
+
+  document.getElementById('results-table').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>TPS</th>
+        <th>Status</th>
+        ${headers}
+      </tr></thead>
+      <tbody>${tbody}</tbody>
+    </table>`;
+}
+
+// ---- Auto-refresh ----
+
+function setupAutoRefresh() {
+  if (state.refreshTimer) clearInterval(state.refreshTimer);
+  if (state.countdownTimer) clearInterval(state.countdownTimer);
+  state.refreshTimer = setInterval(() => {
+    if (state.currentView === 'results') refreshResults();
+    if (state.currentView === 'pending') loadPending();
+  }, 30000);
+  state.countdownTimer = setInterval(updateFooter, 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && Date.now() - state.lastRefreshed > 15000 && state.currentView === 'results') {
+      refreshResults();
+    }
+  });
+}
+
+function updateFooter() {
+  const el = document.getElementById('results-footer');
+  if (!el) return;
+  if (!state.lastRefreshed) { el.textContent = ''; return; }
+  const ago = Math.floor((Date.now() - state.lastRefreshed) / 1000);
+  const next = Math.max(0, 30 - ago);
+  el.textContent = `Last updated ${ago}s ago · Refreshes in ${next}s`;
+}
+
+// ---- Submit ----
+
+async function loadSubmit() {
+  try {
+    const provinces = await api('/api/geo/provinces');
+    const sel = document.getElementById('province-select');
+    sel.innerHTML = '<option value="">— Select Province —</option>' +
+      provinces.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+    document.getElementById('city-select').innerHTML = '<option value="">— Select City —</option>';
+    document.getElementById('city-select').disabled = true;
+    document.getElementById('district-select').innerHTML = '<option value="">— Select District —</option>';
+    document.getElementById('district-select').disabled = true;
+    document.getElementById('tps-select').innerHTML = '<option value="">— Select TPS —</option>';
+    document.getElementById('tps-select').disabled = true;
+    document.getElementById('tps-status-area').innerHTML = '';
+  } catch (e) {
+    console.error('Load submit error:', e);
+  }
+}
+
+document.getElementById('province-select').addEventListener('change', async function() {
+  const id = this.value;
+  const citysel = document.getElementById('city-select');
+  const distsel = document.getElementById('district-select');
+  const tpssel = document.getElementById('tps-select');
+  citysel.innerHTML = '<option value="">— Select City —</option>';
+  distsel.innerHTML = '<option value="">— Select District —</option>';
+  tpssel.innerHTML = '<option value="">— Select TPS —</option>';
+  citysel.disabled = !id;
+  distsel.disabled = true;
+  tpssel.disabled = true;
+  document.getElementById('tps-status-area').innerHTML = '';
+  if (!id) return;
+  try {
+    const cities = await api('/api/geo/provinces/' + id + '/cities');
+    citysel.innerHTML = '<option value="">— Select City —</option>' +
+      cities.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+    citysel.disabled = false;
+  } catch (e) { console.error(e); }
+});
+
+document.getElementById('city-select').addEventListener('change', async function() {
+  const id = this.value;
+  const distsel = document.getElementById('district-select');
+  const tpssel = document.getElementById('tps-select');
+  distsel.innerHTML = '<option value="">— Select District —</option>';
+  tpssel.innerHTML = '<option value="">— Select TPS —</option>';
+  distsel.disabled = !id;
+  tpssel.disabled = true;
+  document.getElementById('tps-status-area').innerHTML = '';
+  if (!id) return;
+  try {
+    const dists = await api('/api/geo/cities/' + id + '/districts');
+    distsel.innerHTML = '<option value="">— Select District —</option>' +
+      dists.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join('');
+    distsel.disabled = false;
+  } catch (e) { console.error(e); }
+});
+
+document.getElementById('district-select').addEventListener('change', async function() {
+  const id = this.value;
+  const tpssel = document.getElementById('tps-select');
+  tpssel.innerHTML = '<option value="">— Select TPS —</option>';
+  tpssel.disabled = !id;
+  document.getElementById('tps-status-area').innerHTML = '';
+  if (!id) return;
+  try {
+    const tpsList = await api('/api/geo/districts/' + id + '/tps');
+    tpssel.innerHTML = '<option value="">— Select TPS —</option>' +
+      tpsList.map(t => `<option value="${t.id}">TPS ${esc(t.number)}${t.registered_voters ? ' (DPT: ' + t.registered_voters + ')' : ''}</option>`).join('');
+    tpssel.disabled = false;
+  } catch (e) { console.error(e); }
+});
+
+document.getElementById('tps-select').addEventListener('change', async function() {
+  const id = this.value;
+  const area = document.getElementById('tps-status-area');
+  area.innerHTML = '';
+  if (!id) return;
+  try {
+    const { entry, votes, election_id, is_own_entry } = await api('/api/tps/' + id + '/status');
+    renderTpsStatusForm(area, id, entry, votes, election_id, is_own_entry);
+  } catch (e) {
+    area.innerHTML = `<p class="text-red-400 text-sm">${esc(e.message)}</p>`;
+  }
+});
+
+function renderTpsStatusForm(area, tpsId, entry, votes, electionId, isOwnEntry) {
+  if (!electionId) {
+    area.innerHTML = '<p class="text-slate-500 text-sm">No active election.</p>';
+    return;
+  }
+  if (entry && entry.status === 'confirmed') {
+    const voteMap = {};
+    for (const v of (votes || [])) voteMap[v.candidate_id] = v.votes;
+    area.innerHTML = `
+      <div class="bg-emerald-900/30 border border-emerald-700 rounded-lg p-4 mb-4">
+        <p class="text-emerald-400 font-medium mb-2">✓ This TPS has been confirmed</p>
+        ${state.candidates.map(c => `<div class="flex justify-between text-sm py-1"><span>${esc(c.name)}</span><span class="font-mono">${(voteMap[c.id] || 0).toLocaleString()}</span></div>`).join('')}
+        <p class="text-xs text-slate-500 mt-2">Confirmed by ${esc(entry.confirmed_by_username)}</p>
+      </div>`;
+    return;
+  }
+  if (entry && entry.status === 'pending' && !isOwnEntry) {
+    area.innerHTML = `
+      <div class="bg-amber-900/30 border border-amber-700 rounded-lg p-4">
+        <p class="text-amber-400 font-medium mb-1">⏳ Pending entry from ${esc(entry.submitted_by_username)}</p>
+        <p class="text-sm text-slate-400">This TPS has a pending entry awaiting confirmation.</p>
+        <button onclick="showView('pending')" class="btn-primary mt-3 text-sm">Go to Pending tab to confirm →</button>
+      </div>`;
+    return;
+  }
+
+  const voteMap = {};
+  if (entry && isOwnEntry) {
+    for (const v of (votes || [])) voteMap[v.candidate_id] = v.votes;
+  }
+
+  const ownPendingNotice = (entry && isOwnEntry && entry.status === 'pending') ?
+    `<div class="bg-amber-900/30 border border-amber-700 rounded-lg p-3 mb-4 text-sm text-amber-400">
+      ⏳ Your entry is pending confirmation. Submitting again will replace it.
+      <button onclick="withdrawEntry(${entry.id},'${tpsId}','${electionId}')" class="ml-2 underline cursor-pointer bg-transparent border-0 text-amber-400">Withdraw</button>
+    </div>` : '';
+
+  const voteInputs = state.candidates.map(c => `
+    <div class="flex items-center gap-3 py-2">
+      <div class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold" style="background:${esc(c.color)}">${esc(initials(c.name))}</div>
+      <label class="flex-1 m-0 text-sm text-slate-300">${esc(c.name)}${c.running_mate ? ' & ' + esc(c.running_mate) : ''}</label>
+      <input type="number" min="0" max="9999" class="w-24 text-right" id="votes-${c.id}" value="${voteMap[c.id] || 0}" placeholder="0">
+    </div>`).join('');
+
+  area.innerHTML = `
+    ${ownPendingNotice}
+    <div class="bg-slate-900 border border-slate-800 rounded-lg p-5">
+      <h3 class="font-semibold mb-4">Enter vote counts</h3>
+      <div class="divide-y divide-slate-800 mb-4">${voteInputs}</div>
+      <div class="space-y-3 mb-5">
+        <div>
+          <label for="submit-photo">Photo URL (optional)</label>
+          <input type="url" id="submit-photo" placeholder="https://...">
+        </div>
+        <div>
+          <label for="submit-notes">Notes (optional)</label>
+          <textarea id="submit-notes" rows="2" placeholder="Any notes…" style="resize:vertical"></textarea>
+        </div>
+      </div>
+      <button onclick="submitEntry('${tpsId}','${electionId}')" class="btn-primary w-full">Submit Entry</button>
+      <div id="submit-result" class="mt-3"></div>
+    </div>`;
+}
+
+async function submitEntry(tpsId, electionId) {
+  const votes = state.candidates.map(c => ({
+    candidate_id: c.id,
+    votes: parseInt(document.getElementById('votes-' + c.id).value) || 0
+  }));
+  const photo_url = document.getElementById('submit-photo').value.trim() || null;
+  const notes = document.getElementById('submit-notes').value.trim() || null;
+
+  try {
+    await api('/api/entries', { method: 'POST', body: { tps_id: parseInt(tpsId), election_id: parseInt(electionId), votes, photo_url, notes } });
+    document.getElementById('submit-result').innerHTML =
+      `<p class="text-emerald-400 text-sm">✓ Entry submitted! It needs one more person to confirm it.</p>`;
+    // Re-load status
+    const { entry, votes: ev, election_id, is_own_entry } = await api('/api/tps/' + tpsId + '/status');
+    renderTpsStatusForm(document.getElementById('tps-status-area'), tpsId, entry, ev, election_id, is_own_entry);
+    updatePendingBadge();
+  } catch (e) {
+    document.getElementById('submit-result').innerHTML =
+      `<p class="text-red-400 text-sm">${esc(e.message)}</p>`;
+  }
+}
+
+async function withdrawEntry(entryId, tpsId, electionId) {
+  try {
+    await api('/api/entries/' + entryId + '/withdraw', { method: 'POST' });
+    const { entry, votes, election_id, is_own_entry } = await api('/api/tps/' + tpsId + '/status');
+    renderTpsStatusForm(document.getElementById('tps-status-area'), tpsId, entry, votes, election_id, is_own_entry);
+    updatePendingBadge();
+  } catch (e) {
+    alert('Failed to withdraw: ' + e.message);
+  }
+}
+
+// ---- Pending ----
+
+async function loadPending() {
+  const list = document.getElementById('pending-list');
+  list.innerHTML = '<p class="text-slate-500 text-sm">Loading…</p>';
+  try {
+    const entries = await api('/api/entries/pending');
+    updatePendingBadge(entries.length);
+    if (!entries.length) {
+      list.innerHTML = '<p class="text-slate-500 py-8 text-center">No pending entries right now.</p>';
+      return;
+    }
+    list.innerHTML = entries.map(e => {
+      const voteMap = {};
+      for (const v of (e.votes || [])) voteMap[v.candidate_id] = v.votes;
+      const voteSummary = state.candidates.map(c =>
+        `<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full inline-block" style="background:${esc(c.color)}"></span><span class="text-xs">${(voteMap[c.id] || 0)}</span></span>`
+      ).join('<span class="text-slate-700 mx-1">·</span>');
+
+      const isOwn = e.submitted_by_user_id === state._myUserId;
+
+      return `<div class="bg-slate-900 border border-slate-800 rounded-lg p-4 mb-3">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div class="font-medium">TPS ${esc(e.tps_number)} — ${esc(e.district_name)}, ${esc(e.city_name)}</div>
+            <div class="text-sm text-slate-500">${esc(e.province_name)}</div>
+            <div class="text-sm text-slate-400 mt-1">Submitted by <strong>${esc(e.submitted_by_username)}</strong></div>
+            <div class="mt-2 flex gap-2 flex-wrap">${voteSummary}</div>
+            ${e.photo_url ? `<a href="${esc(e.photo_url)}" target="_blank" class="text-xs text-blue-400 hover:underline mt-1 block">View photo →</a>` : ''}
+          </div>
+          <div class="flex gap-2 flex-shrink-0">
+            <button onclick="confirmEntry(${e.id})" class="btn-success" id="confirm-btn-${e.id}">Confirm</button>
+            <button onclick="rejectEntry(${e.id})" class="btn-danger" id="reject-btn-${e.id}">Reject</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    list.innerHTML = `<p class="text-red-400 text-sm">${esc(err.message)}</p>`;
+  }
+}
+
+async function confirmEntry(id) {
+  try {
+    await api('/api/entries/' + id + '/confirm', { method: 'POST' });
+    await loadPending();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function rejectEntry(id) {
+  try {
+    await api('/api/entries/' + id + '/reject', { method: 'POST' });
+    await loadPending();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function updatePendingBadge(count) {
+  try {
+    if (count === undefined) {
+      const entries = await api('/api/entries/pending');
+      count = entries.length;
+    }
+    const badge = document.getElementById('pending-badge');
+    if (count > 0) {
+      badge.textContent = count;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  } catch (_) {}
+}
+
+// ---- Admin ----
+
+async function loadAdmin() {
+  if (!state.isAdmin) {
+    document.getElementById('admin-panel').innerHTML = '<p class="text-red-400">Access denied.</p>';
+    return;
+  }
+  showAdminTab('election');
+}
+
+function showAdminTab(name) {
+  document.querySelectorAll('.admin-tab').forEach(btn => {
+    const active = btn.dataset.atab === name;
+    btn.style.borderBottomColor = active ? '#3b82f6' : 'transparent';
+    btn.style.color = active ? '#f1f5f9' : '';
+  });
+  document.querySelectorAll('.admin-tab-content').forEach(el => {
+    el.classList.toggle('hidden', el.id !== 'admin-tab-' + name);
+  });
+  if (name === 'election') renderAdminElection();
+  else if (name === 'candidates') renderAdminCandidates();
+  else if (name === 'geography') renderAdminGeography();
+  else if (name === 'entries') renderAdminEntries();
+  else if (name === 'admins') renderAdminAdmins();
+}
+
+async function renderAdminElection() {
+  const el = document.getElementById('admin-tab-election');
+  el.innerHTML = '<p class="text-slate-500 text-sm">Loading…</p>';
+  try {
+    const { election } = await api('/api/elections/active');
+    const form = (e) => `
+      <div class="bg-slate-900 border border-slate-800 rounded-lg p-5 mb-4 max-w-lg">
+        <h3 class="font-semibold mb-4">${e ? 'Edit Election' : 'Create Election'}</h3>
+        <div class="space-y-3">
+          <div><label>Name</label><input type="text" id="elec-name" value="${esc(e ? e.name : '')}"></div>
+          <div><label>Description</label><textarea id="elec-desc" rows="2">${esc(e ? e.description : '')}</textarea></div>
+          <div><label>Status</label>
+            <select id="elec-status">
+              <option value="active" ${!e || e.status==='active' ? 'selected' : ''}>Active</option>
+              <option value="completed" ${e && e.status==='completed' ? 'selected' : ''}>Completed</option>
+            </select>
+          </div>
+        </div>
+        <button onclick="${e ? 'saveElection(' + e.id + ')' : 'createElection()'}" class="btn-primary mt-4">${e ? 'Save Changes' : 'Create'}</button>
+        <div id="elec-result" class="mt-2 text-sm"></div>
+      </div>`;
+    el.innerHTML = form(election) + (election ? `<p class="text-xs text-slate-500">ID: ${election.id} · Created by ${esc(election.created_by_username)}</p>` : '');
+  } catch (e) {
+    el.innerHTML = `<p class="text-red-400 text-sm">${esc(e.message)}</p>`;
+  }
+}
+
+window.createElection = async function() {
+  try {
+    const name = document.getElementById('elec-name').value.trim();
+    const description = document.getElementById('elec-desc').value.trim();
+    const status = document.getElementById('elec-status').value;
+    const { election } = await api('/api/elections', { method: 'POST', body: { name, description, status } });
+    state.election = election;
+    document.getElementById('election-name').textContent = election.name;
+    document.getElementById('elec-result').innerHTML = '<span class="text-emerald-400">✓ Election created</span>';
+    await renderAdminElection();
+  } catch (e) {
+    document.getElementById('elec-result').innerHTML = `<span class="text-red-400">${esc(e.message)}</span>`;
+  }
+};
+
+window.saveElection = async function(id) {
+  try {
+    const name = document.getElementById('elec-name').value.trim();
+    const description = document.getElementById('elec-desc').value.trim();
+    const status = document.getElementById('elec-status').value;
+    const { election } = await api('/api/elections/' + id, { method: 'PUT', body: { name, description, status } });
+    state.election = election;
+    document.getElementById('election-name').textContent = election.name;
+    document.getElementById('elec-result').innerHTML = '<span class="text-emerald-400">✓ Saved</span>';
+  } catch (e) {
+    document.getElementById('elec-result').innerHTML = `<span class="text-red-400">${esc(e.message)}</span>`;
+  }
+};
+
+async function renderAdminCandidates() {
+  const el = document.getElementById('admin-tab-candidates');
+  el.innerHTML = '<p class="text-slate-500 text-sm">Loading…</p>';
+  if (!state.election) {
+    el.innerHTML = '<p class="text-slate-500">Create an election first.</p>';
+    return;
+  }
+  const PRESET_COLORS = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#8b5cf6'];
+  const { candidates } = await api('/api/elections/active');
+  const list = candidates.length
+    ? `<div class="space-y-2 mb-6">${candidates.map((c, i) => `
+      <div class="bg-slate-900 border border-slate-800 rounded-lg p-3 flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full flex-shrink-0" style="background:${esc(c.color)}"></div>
+        <div class="flex-1">
+          <div class="font-medium text-sm">No. ${c.sequence_number} — ${esc(c.name)}</div>
+          ${c.running_mate ? `<div class="text-xs text-slate-500">&amp; ${esc(c.running_mate)}</div>` : ''}
+        </div>
+        <button onclick="deleteCandidate(${c.id})" class="btn-danger text-xs">Remove</button>
+      </div>`).join('')}</div>` : '<p class="text-slate-500 text-sm mb-4">No candidates yet.</p>';
+
+  el.innerHTML = list + `
+    <div class="bg-slate-900 border border-slate-800 rounded-lg p-5 max-w-lg">
+      <h3 class="font-semibold mb-4">Add Candidate</h3>
+      <div class="space-y-3">
+        <div class="flex gap-3">
+          <div class="w-16"><label>No.</label><input type="number" id="cand-seq" min="1" value="${candidates.length + 1}"></div>
+          <div class="flex-1"><label>Name</label><input type="text" id="cand-name" placeholder="Full name"></div>
+        </div>
+        <div><label>Running Mate (optional)</label><input type="text" id="cand-mate" placeholder="Running mate name"></div>
+        <div><label>Photo URL (optional)</label><input type="url" id="cand-photo" placeholder="https://..."></div>
+        <div>
+          <label>Color</label>
+          <div class="flex gap-2 mt-1">
+            ${PRESET_COLORS.map((c, i) => `<button onclick="document.getElementById('cand-color').value='${c}';document.querySelectorAll('.color-preset').forEach(b=>b.classList.remove('ring-2','ring-white'));this.classList.add('ring-2','ring-white')" class="color-preset w-7 h-7 rounded-full cursor-pointer border-0" style="background:${c}" title="${c}"></button>`).join('')}
+            <input type="color" id="cand-color" value="${PRESET_COLORS[candidates.length % PRESET_COLORS.length]}" class="w-7 h-7 rounded cursor-pointer border-0 bg-transparent">
+          </div>
+        </div>
+      </div>
+      <button onclick="addCandidate()" class="btn-primary mt-4">Add Candidate</button>
+      <div id="cand-result" class="mt-2 text-sm"></div>
+    </div>`;
+}
+
+window.addCandidate = async function() {
+  try {
+    const seq = parseInt(document.getElementById('cand-seq').value);
+    const name = document.getElementById('cand-name').value.trim();
+    const mate = document.getElementById('cand-mate').value.trim();
+    const photo = document.getElementById('cand-photo').value.trim();
+    const color = document.getElementById('cand-color').value;
+    if (!name) throw new Error('Name is required');
+    await api('/api/candidates', { method: 'POST', body: { election_id: state.election.id, sequence_number: seq, name, running_mate: mate || null, photo_url: photo || null, color } });
+    const { candidates } = await api('/api/elections/active');
+    state.candidates = candidates;
+    await renderAdminCandidates();
+  } catch (e) {
+    document.getElementById('cand-result').innerHTML = `<span class="text-red-400">${esc(e.message)}</span>`;
+  }
+};
+
+window.deleteCandidate = async function(id) {
+  if (!confirm('Remove this candidate?')) return;
+  try {
+    await api('/api/candidates/' + id, { method: 'DELETE' });
+    const { candidates } = await api('/api/elections/active');
+    state.candidates = candidates;
+    await renderAdminCandidates();
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+async function renderAdminGeography() {
+  const el = document.getElementById('admin-tab-geography');
+  el.innerHTML = '<p class="text-slate-500 text-sm">Loading…</p>';
+  try {
+    const provinces = await api('/api/geo/provinces');
+    const seedBtn = state.isStaging
+      ? `<button onclick="seedGeo()" class="btn-primary mb-6 bg-amber-600 hover:bg-amber-500">🌱 Seed Demo Geography</button>` : '';
+
+    el.innerHTML = seedBtn + `
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-slate-900 border border-slate-800 rounded-lg p-4">
+          <h3 class="font-semibold mb-3 text-sm">Add Province</h3>
+          <div class="space-y-2">
+            <div><label>Code (unique)</label><input type="text" id="prov-code" placeholder="e.g. JB"></div>
+            <div><label>Name</label><input type="text" id="prov-name" placeholder="Province name"></div>
+          </div>
+          <button onclick="addProvince()" class="btn-primary mt-3 text-sm">Add Province</button>
+          <div id="prov-result" class="mt-2 text-xs"></div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-lg p-4">
+          <h3 class="font-semibold mb-3 text-sm">Add City / Regency</h3>
+          <div class="space-y-2">
+            <div><label>Province</label>
+              <select id="city-prov-sel">${provinces.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>
+            </div>
+            <div><label>Code</label><input type="text" id="city-code" placeholder="e.g. JB-1"></div>
+            <div><label>Name</label><input type="text" id="city-name" placeholder="City/regency name"></div>
+          </div>
+          <button onclick="addCity()" class="btn-primary mt-3 text-sm">Add City</button>
+          <div id="city-result" class="mt-2 text-xs"></div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-lg p-4">
+          <h3 class="font-semibold mb-3 text-sm">Add District (Kecamatan)</h3>
+          <div class="space-y-2">
+            <div><label>Province</label>
+              <select id="dist-prov-sel" onchange="loadDistCities()">${provinces.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>
+            </div>
+            <div><label>City</label><select id="dist-city-sel"><option value="">— load cities —</option></select></div>
+            <div><label>Code</label><input type="text" id="dist-code" placeholder="e.g. JB-1-1"></div>
+            <div><label>Name</label><input type="text" id="dist-name" placeholder="District name"></div>
+          </div>
+          <button onclick="addDistrict()" class="btn-primary mt-3 text-sm">Add District</button>
+          <div id="dist-result" class="mt-2 text-xs"></div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-lg p-4">
+          <h3 class="font-semibold mb-3 text-sm">Add TPS</h3>
+          <div class="space-y-2">
+            <div><label>Province</label>
+              <select id="tps-prov-sel" onchange="loadTpsCities()">${provinces.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>
+            </div>
+            <div><label>City</label><select id="tps-city-sel" onchange="loadTpsDists()"><option value="">— load cities —</option></select></div>
+            <div><label>District</label><select id="tps-dist-sel"><option value="">— load districts —</option></select></div>
+            <div><label>TPS Number</label><input type="text" id="tps-num" placeholder="e.g. 001"></div>
+            <div><label>Registered Voters (optional)</label><input type="number" id="tps-dpt" placeholder="300"></div>
+          </div>
+          <button onclick="addTps()" class="btn-primary mt-3 text-sm">Add TPS</button>
+          <div id="tps-add-result" class="mt-2 text-xs"></div>
+        </div>
+      </div>`;
+  } catch (e) {
+    el.innerHTML = `<p class="text-red-400 text-sm">${esc(e.message)}</p>`;
+  }
+}
+
+window.seedGeo = async function() {
+  if (!confirm('Seed demo geography? This will add staging test data.')) return;
+  try {
+    await api('/api/admin/seed-geo', { method: 'POST' });
+    alert('Demo geography seeded. Reload to see it.');
+  } catch (e) {
+    alert('Seed error: ' + e.message);
+  }
+};
+
+window.addProvince = async function() {
+  try {
+    const code = document.getElementById('prov-code').value.trim();
+    const name = document.getElementById('prov-name').value.trim();
+    await api('/api/geo/provinces', { method: 'POST', body: { code, name } });
+    document.getElementById('prov-result').innerHTML = '<span class="text-emerald-400">✓ Added</span>';
+    document.getElementById('prov-code').value = '';
+    document.getElementById('prov-name').value = '';
+    await renderAdminGeography();
+  } catch (e) {
+    document.getElementById('prov-result').innerHTML = `<span class="text-red-400">${esc(e.message)}</span>`;
+  }
+};
+
+window.addCity = async function() {
+  try {
+    const province_id = document.getElementById('city-prov-sel').value;
+    const code = document.getElementById('city-code').value.trim();
+    const name = document.getElementById('city-name').value.trim();
+    await api('/api/geo/cities', { method: 'POST', body: { province_id: parseInt(province_id), code, name } });
+    document.getElementById('city-result').innerHTML = '<span class="text-emerald-400">✓ Added</span>';
+  } catch (e) {
+    document.getElementById('city-result').innerHTML = `<span class="text-red-400">${esc(e.message)}</span>`;
+  }
+};
+
+window.loadDistCities = async function() {
+  const pid = document.getElementById('dist-prov-sel').value;
+  const sel = document.getElementById('dist-city-sel');
+  if (!pid) return;
+  const cities = await api('/api/geo/provinces/' + pid + '/cities');
+  sel.innerHTML = cities.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+};
+
+window.addDistrict = async function() {
+  try {
+    const city_id = document.getElementById('dist-city-sel').value;
+    const code = document.getElementById('dist-code').value.trim();
+    const name = document.getElementById('dist-name').value.trim();
+    await api('/api/geo/districts', { method: 'POST', body: { city_id: parseInt(city_id), code, name } });
+    document.getElementById('dist-result').innerHTML = '<span class="text-emerald-400">✓ Added</span>';
+  } catch (e) {
+    document.getElementById('dist-result').innerHTML = `<span class="text-red-400">${esc(e.message)}</span>`;
+  }
+};
+
+window.loadTpsCities = async function() {
+  const pid = document.getElementById('tps-prov-sel').value;
+  const sel = document.getElementById('tps-city-sel');
+  if (!pid) return;
+  const cities = await api('/api/geo/provinces/' + pid + '/cities');
+  sel.innerHTML = cities.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+};
+
+window.loadTpsDists = async function() {
+  const cid = document.getElementById('tps-city-sel').value;
+  const sel = document.getElementById('tps-dist-sel');
+  if (!cid) return;
+  const dists = await api('/api/geo/cities/' + cid + '/districts');
+  sel.innerHTML = dists.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join('');
+};
+
+window.addTps = async function() {
+  try {
+    const district_id = document.getElementById('tps-dist-sel').value;
+    const number = document.getElementById('tps-num').value.trim();
+    const registered_voters = parseInt(document.getElementById('tps-dpt').value) || null;
+    await api('/api/geo/tps', { method: 'POST', body: { district_id: parseInt(district_id), number, registered_voters } });
+    document.getElementById('tps-add-result').innerHTML = '<span class="text-emerald-400">✓ Added</span>';
+    document.getElementById('tps-num').value = '';
+  } catch (e) {
+    document.getElementById('tps-add-result').innerHTML = `<span class="text-red-400">${esc(e.message)}</span>`;
+  }
+};
+
+async function renderAdminEntries() {
+  const el = document.getElementById('admin-tab-entries');
+  el.innerHTML = '<p class="text-slate-500 text-sm">Loading…</p>';
+  try {
+    const entries = await api('/api/admin/entries');
+    if (!entries.length) {
+      el.innerHTML = '<p class="text-slate-500 text-center py-8">No entries yet.</p>';
+      return;
+    }
+    const rows = entries.map(e => {
+      const voteMap = {};
+      for (const v of (e.votes || [])) voteMap[v.candidate_id] = v.votes;
+      const voteSummary = state.candidates.map(c =>
+        `<span class="text-xs font-mono" style="color:${esc(c.color)}">${(voteMap[c.id] || 0)}</span>`
+      ).join(' ');
+      const statusColor = { pending: 'text-amber-400', confirmed: 'text-emerald-400', rejected: 'text-red-400', withdrawn: 'text-slate-600' };
+      const actions = e.status === 'pending'
+        ? `<button onclick="adminConfirmEntry(${e.id})" class="btn-success text-xs mr-1">Confirm</button><button onclick="adminRejectEntry(${e.id})" class="btn-danger text-xs">Reject</button>`
+        : e.status === 'confirmed'
+        ? `<button onclick="adminResetEntry(${e.id})" class="btn-ghost text-xs">Reset</button>`
+        : '';
+      return `<tr>
+        <td class="font-mono text-xs">TPS ${esc(e.tps_number)}<br><span class="text-slate-500">${esc(e.district_name)}</span></td>
+        <td class="text-xs"><div class="${statusColor[e.status] || 'text-slate-400'} font-medium">${e.status}</div><div class="text-slate-500">${esc(e.submitted_by_username)}</div></td>
+        <td class="text-xs">${voteSummary}</td>
+        <td>${actions}</td>
+      </tr>`;
+    }).join('');
+
+    el.innerHTML = `<div class="overflow-x-auto"><table>
+      <thead><tr><th>TPS</th><th>Status / By</th><th>Votes</th><th>Actions</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  } catch (e) {
+    el.innerHTML = `<p class="text-red-400 text-sm">${esc(e.message)}</p>`;
+  }
+}
+
+window.adminConfirmEntry = async function(id) {
+  try {
+    await api('/api/admin/entries/' + id + '/confirm', { method: 'POST' });
+    await renderAdminEntries();
+  } catch (e) { alert(e.message); }
+};
+
+window.adminRejectEntry = async function(id) {
+  try {
+    await api('/api/admin/entries/' + id + '/reject', { method: 'POST' });
+    await renderAdminEntries();
+  } catch (e) { alert(e.message); }
+};
+
+window.adminResetEntry = async function(id) {
+  if (!confirm('Reset this confirmed entry back to pending?')) return;
+  try {
+    await api('/api/admin/entries/' + id + '/reset', { method: 'POST' });
+    await renderAdminEntries();
+  } catch (e) { alert(e.message); }
+};
+
+async function renderAdminAdmins() {
+  const el = document.getElementById('admin-tab-admins');
+  el.innerHTML = `
+    <div class="max-w-sm">
+      <h3 class="font-semibold mb-3">Designate Admin</h3>
+      <p class="text-sm text-slate-400 mb-4">Enter a Usernode username. They will have admin access the next time they open the app.</p>
+      <div class="flex gap-2">
+        <input type="text" id="new-admin-username" placeholder="username" class="flex-1">
+        <button onclick="addAdmin()" class="btn-primary">Add</button>
+      </div>
+      <div id="admin-add-result" class="mt-2 text-sm"></div>
+    </div>`;
+}
+
+window.addAdmin = async function() {
+  const username = document.getElementById('new-admin-username').value.trim();
+  try {
+    await api('/api/admin/admins', { method: 'POST', body: { username } });
+    document.getElementById('admin-add-result').innerHTML = `<span class="text-emerald-400">✓ ${esc(username)} will be admin on next login</span>`;
+    document.getElementById('new-admin-username').value = '';
+  } catch (e) {
+    document.getElementById('admin-add-result').innerHTML = `<span class="text-red-400">${esc(e.message)}</span>`;
+  }
+};
+
+// ---- Boot ----
+init().then(() => updatePendingBadge()).catch(console.error);
+</script>
 </body>
 </html>
