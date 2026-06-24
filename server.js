@@ -9,7 +9,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const JWT_SECRET = process.env.JWT_SECRET;
 const IS_STAGING = process.env.USERNODE_ENV === 'staging';
 
-const PUBLIC_API_PATHS = new Set(['/health', '/api/status']);
+const PUBLIC_API_PATHS = new Set(['/health', '/api/status', '/favicon.ico']);
 const PUBLIC_PREFIXES = ['/explorer-api/'];
 
 app.use(express.json());
@@ -28,6 +28,7 @@ app.use((req, res, next) => {
 });
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/favicon.ico', (_req, res) => res.status(204).end());
 app.get('/api/status', (_req, res) => res.json({ isStaging: IS_STAGING }));
 
 async function requireAdmin(req, res, next) {
