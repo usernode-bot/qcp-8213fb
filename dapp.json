@@ -2,9 +2,29 @@
   "name": "QCP — Kawal Pemilu",
   "secrets": [],
   "tests": [
-    { "name": "Results view renders", "path": "/", "expectSelector": "#view-results" },
-    { "name": "Submit form has province dropdown", "path": "/?view=submit", "expectSelector": "#province-select" },
-    { "name": "Pending list container renders", "path": "/?view=pending", "expectSelector": "#pending-list" },
-    { "name": "Admin panel renders", "path": "/?view=admin", "expectSelector": "#admin-panel" }
-  ]
+    {
+      "name": "Results view renders",
+      "path": "/",
+      "expectSelector": "#view-results"
+    },
+    {
+      "name": "Submit form has province dropdown",
+      "path": "/?view=submit",
+      "expectSelector": "#province-select"
+    },
+    {
+      "name": "Pending list container renders",
+      "path": "/?view=pending",
+      "expectSelector": "#pending-list"
+    },
+    {
+      "name": "Admin panel renders",
+      "path": "/?view=admin",
+      "expectSelector": "#admin-panel"
+    }
+  ],
+  "visibility": {
+    "build": "private",
+    "view": "public"
+  }
 }
