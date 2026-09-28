@@ -1,4 +1,5 @@
 {
+  "icon": { "image": "brand/icon.png" },
   "name": "QCP — Kawal Pemilu",
   "secrets": [],
   "tests": [
