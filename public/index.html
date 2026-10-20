@@ -130,7 +130,11 @@
       <!-- Geo drill-down -->
       <div class="bg-slate-900 rounded-lg border border-slate-800">
         <div id="results-breadcrumb" class="px-4 py-3 border-b border-slate-800 text-sm text-slate-400 flex items-center gap-1 flex-wrap"></div>
+        <div id="results-search-row" class="px-4 py-3 border-b border-slate-800">
+          <input type="text" id="results-search" placeholder="Search" autocomplete="off" oninput="applyResultsFilter()">
+        </div>
         <div id="results-table" class="overflow-x-auto"></div>
+        <p id="results-no-match" hidden class="text-slate-500 text-center py-8">No matches.</p>
       </div>
 
       <div id="results-footer" class="mt-3 text-center text-xs text-slate-600"></div>
@@ -297,12 +301,14 @@ async function showView(name) {
 // ---- Results ----
 
 async function loadResults() {
+  document.getElementById('results-search-row').hidden = !state.election;
   if (!state.election) {
     document.getElementById('candidate-cards').innerHTML =
       '<p class="col-span-3 text-slate-500 text-center py-8">No active election. An admin can create one in the Admin panel.</p>';
     document.getElementById('results-reporting').textContent = '';
     document.getElementById('results-table').innerHTML = '';
     document.getElementById('results-breadcrumb').innerHTML = '';
+    document.getElementById('results-no-match').hidden = true;
     return;
   }
   await refreshResults();
@@ -319,7 +325,10 @@ async function refreshResults() {
 
     // Restore drilldown or show provinces
     if (state.drilldown.level === 'national') {
-      renderGeoTable('province', provinces, null);
+      // Pre-existing fix: the provinces array must render through the
+      // 'national' branch, or the table shows "No data available." on load
+      // and after each auto-refresh.
+      renderGeoTable('national', provinces, null);
     } else {
       await drillTo(state.drilldown.level, state.drilldown.id, state.drilldown.path, true);
     }
@@ -371,6 +380,11 @@ function renderCandidateCards(totals) {
 
 async function drillTo(level, id, path, skipFetch) {
   state.drilldown = { level, id, path };
+  if (!skipFetch) {
+    // User navigation: clear the search so the new level shows in full.
+    const searchInput = document.getElementById('results-search');
+    if (searchInput) searchInput.value = '';
+  }
   let data;
   if (!skipFetch) {
     if (level === 'national') { data = await api('/api/results/provinces'); }
@@ -416,10 +430,25 @@ function renderGeoTable(currentLevel, data, path) {
   }
 }
 
+function applyResultsFilter() {
+  const searchInput = document.getElementById('results-search');
+  if (!searchInput) return;
+  const q = searchInput.value.trim().toLowerCase();
+  const rows = document.querySelectorAll('#results-table tbody tr');
+  let shown = 0;
+  rows.forEach(tr => {
+    const match = !q || (tr.dataset.search || '').includes(q);
+    tr.hidden = !match;
+    if (match) shown++;
+  });
+  document.getElementById('results-no-match').hidden = !(rows.length && q && !shown);
+}
+
 function renderLocationTable(rows, nextLevel, currentPath) {
   const candidates = state.candidates.slice(0, 4);
   if (!rows.length) {
     document.getElementById('results-table').innerHTML = '<p class="text-slate-500 text-center py-8">No data available.</p>';
+    applyResultsFilter();
     return;
   }
 
@@ -436,7 +465,7 @@ function renderLocationTable(rows, nextLevel, currentPath) {
     }).join('');
     const vCells = voteVals.map(v => `<td class="font-mono text-xs text-slate-400">${v ? v.toLocaleString() : '—'}</td>`).join('');
     const clickPath = [...currentPath, { level: nextLevel, id: row.id, name: row.name }];
-    return `<tr class="cursor-pointer" onclick="drillTo('${nextLevel}',${row.id},${JSON.stringify(clickPath)})">
+    return `<tr class="cursor-pointer" data-search="${esc(String(row.name).toLowerCase())}" onclick="drillTo('${nextLevel}',${row.id},${JSON.stringify(clickPath)})">
       <td class="font-medium text-blue-400 hover:underline">${esc(row.name)}</td>
       <td class="text-slate-400 text-xs">${row.reported_tps} / ${row.total_tps}</td>
       <td><div class="mini-bar-row">${miniBar}</div></td>
@@ -454,11 +483,13 @@ function renderLocationTable(rows, nextLevel, currentPath) {
       </tr></thead>
       <tbody>${tbody}</tbody>
     </table>`;
+  applyResultsFilter();
 }
 
 function renderTpsTable(tpsList, path) {
   if (!tpsList.length) {
     document.getElementById('results-table').innerHTML = '<p class="text-slate-500 text-center py-8">No TPS in this district.</p>';
+    applyResultsFilter();
     return;
   }
   const candidates = state.candidates.slice(0, 4);
@@ -481,7 +512,7 @@ function renderTpsTable(tpsList, path) {
       ? ` <a href="${esc(t.photo_url)}" target="_blank" class="text-blue-400 hover:underline text-xs ml-1" onclick="event.stopPropagation()">photo</a>`
       : '';
 
-    return `<tr>
+    return `<tr data-search="${esc(('TPS ' + t.number).toLowerCase())}">
       <td class="font-mono text-sm">TPS ${esc(t.number)}</td>
       <td>${statusBadge}${photoLink}</td>
       ${vCells}
@@ -501,6 +532,7 @@ function renderTpsTable(tpsList, path) {
       </tr></thead>
       <tbody>${tbody}</tbody>
     </table>`;
+  applyResultsFilter();
 }
 
 // ---- Auto-refresh ----
